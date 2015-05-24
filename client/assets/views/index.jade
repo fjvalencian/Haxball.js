@@ -1,0 +1,31 @@
+html(lang="pl")
+    head
+        meta(charset="UTF-8")
+        title Hex
+
+    body
+        script(src="http://localhost:35729/livereload.js")
+        // bower:js
+        script(src='../lib/jquery/dist/jquery.js')
+        script(src='../lib/underscore/underscore.js')
+        script(src='../lib/socket.io-client/socket.io.js')
+        // endbower
+
+        style.
+            @font-face {
+                font-family: 'ArcadeClassic';
+                src: url('../assets/fonts/font.ttf');
+            }
+            canvas {
+                image-rendering: optimizeSpeed;             /* Older versions of FF          */
+                image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+                image-rendering: -webkit-optimize-contrast; /* Safari                        */
+                image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+                image-rendering: pixelated;                 /* Awesome future-browsers       */
+                -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+            }
+        div#game-board(style="width: 480px; margin: 0 auto;")
+            canvas(width="480px", height="320px", id="game_canvas")
+        script(src="../js/game.js" type="application/javascript")
+
+

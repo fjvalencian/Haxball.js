@@ -1,0 +1,28 @@
+{
+  "name": "Hex",
+  "version": "0.0.1",
+  "description": "Piłkarzyki",
+  "main": "app/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "hex"
+  ],
+  "author": "Mateusz Bagiński",
+  "license": "GNU",
+  "devDependencies": {
+    "bower": "^1.4.1",
+    "grunt": "^0.4.5",
+    "grunt-cli": "^0.1.13",
+    "grunt-contrib-jade": "^0.14.1",
+    "grunt-contrib-watch": "^0.6.1",
+    "grunt-typescript": "^0.6.1",
+    "grunt-wiredep": "^2.0.0",
+    "tsd": "^0.6.0-beta.5",
+    "typescript": "^1.4.1",
+    "underscore": "^1.8.3"
+  },
+  "dependencies": {
+  }
+}
