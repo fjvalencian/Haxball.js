@@ -7,8 +7,8 @@ module Types {
 
     /** Wektor xy */
     export class Vec2 {
-        constructor( public x: number
-                   , public y: number) {
+        constructor( public x: number = 0
+                   , public y: number = 0) {
         }
         public get xy() { return [ this.x, this.y ]; }
         public set xy(vals:number[]) {
@@ -69,24 +69,36 @@ module Types {
         }
 
         /** Operacje na prostokącie */
-        public divide(v: Rect): Rect { 
+        public divide(v: Rect|Vec2): Rect { 
             this.x /= v.x; this.y /= v.y; 
-            this.w /= v.w; this.h /= v.h; 
+            if(v instanceof Rect) {
+                this.w /= (<Rect>v).w; 
+                this.h /= (<Rect>v).h; 
+            }
             return this; 
         }
-        public add(v: Rect): Rect { 
+        public add(v: Rect|Vec2): Rect { 
             this.x += v.x; this.y += v.y; 
-            this.w += v.w; this.h += v.h; 
+            if(v instanceof Rect) {
+                this.w += (<Rect>v).w; 
+                this.h += (<Rect>v).h; 
+            }
             return this; 
         }
-        public sub(v: Rect): Rect { 
+        public sub(v: Rect|Vec2): Rect { 
             this.x -= v.x; this.y -= v.y; 
-            this.w -= v.w; this.h -= v.h; 
+            if(v instanceof Rect) {
+                this.w -= (<Rect>v).w; 
+                this.h -= (<Rect>v).h; 
+            }
             return this; 
         }
-        public mul(v: Rect): Rect { 
+        public mul(v: Rect|Vec2): Rect { 
             this.x *= v.x; this.y *= v.y; 
-            this.w *= v.w; this.h *= v.h; 
+            if(v instanceof Rect) {
+                this.w *= (<Rect>v).w; 
+                this.h *= (<Rect>v).h;  
+            }
             return this; 
         }
 

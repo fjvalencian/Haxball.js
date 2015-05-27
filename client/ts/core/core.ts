@@ -10,19 +10,9 @@
 /// <reference path="gui.ts" />
 
 module Core {
-    export class State extends Scene.ContainerObject<Scene.KernelObject> {
-        protected kernel: Kernel;
-
-        /**
-         * Dodawanie obiektu do sceny
-         * @param  {Scene.Object} obj Obiekt
-         * @return {Scene.Object}     Scena
-         */
-        public add<T extends Scene.KernelObject>(obj: T): T { 
-            obj.kernel = this.kernel;
-            return <T> super.add(obj);
-        }
-
+    /** Stan aplikacji np. menu, plansza gry */
+    export class State 
+            extends Scene.ContainerObject<Scene.KernelObject> {
         /** Fabryka elementów */
         public create = {
               sprite: (img: string, rect: Types.Rect): Scene.Sprite => {
@@ -36,25 +26,24 @@ module Core {
             }
         };
 
-        /** Metody dziedziczące */
+        /** Metody dziedziczące, brak abstract/virtual :( */
         protected load() {}
+        protected listeners() {}
+
         public start() {}
         public stop() {}
 
-        /**
-         * Inicjacja stanu
-         * @param {Kernel} kernel
-         */
-        public init(kernel: Kernel) { 
-            this.kernel = kernel;
+        /** Inicjacja stanu */
+        public init() { 
             this.load();
+            this.listeners();
         }
 
         /**
          * Rendering
          * @param {Types.Context} ctx  Kontekst canvasu
          */
-        protected update() { }
+        public update() { }
         public draw(ctx: Types.Context) {
             super.draw(ctx);
             this.update();
@@ -85,8 +74,8 @@ module Core {
      */
     export class Kernel {
         private config: CanvasConfig;
-        public get canvas() { return this.config.canvas; }
-        public get ctx() { return this.config.ctx; }
+        public get canvas(): Types.Canvas { return this.config.canvas; }
+        public get ctx(): Types.Context { return this.config.ctx; }
 
         constructor(canvasId: string) {
             this.config = new CanvasConfig(
@@ -102,7 +91,7 @@ module Core {
         public preload(resources: Resource.Data[]): Kernel {
             if(this.mode !== KernelMode.PRELOADING)
                 throw new Error('Nie mogę wczytać zasobu!');
-            this.resources = resources;
+            this.resources = this.resources.concat(resources);
             return this;
         }
 
@@ -119,27 +108,41 @@ module Core {
 
         /**
          * Broadcastowanie wiadomości po stanach
-         * @param {Input.Event} event Event
-         * @return              this
+         * @param {Input.Event} event         Event
+         * @param {Boolean}     currentState  Rozsyłanie na bierzący stan
          */
-        public broadcast(event: Input.Event): Kernel {
-            _.each(this.state, (state: State) => {
-                state.onEvent(this, event);
-            });
+        public broadcast(event: Input.Event, currentState: Boolean = false): Kernel {
+            if(!currentState)
+                _.each(this.state, (state: State) => {
+                    state.onEvent(this, event);
+                });
+            else
+                this.currentState.onEvent(this, event);
             return this;
         }
 
         /** Rejestrowanie nasłuchiwania eventów */
+        private pressedKeys: { [index: number]: Boolean } = {};
         private regListeners() {
             $(window)
-                .keydown((e: Event) => {
-                    this.broadcast({ type: Input.Type.KEY_DOWN, data: e });
+                .keydown(e => { 
+                    this.pressedKeys[e.keyCode] = true; 
+                })
+                .keyup(e => { 
+                    delete this.pressedKeys[e.keyCode];
+                    this.broadcast({ 
+                          type: Input.Type.KEY_UP
+                        , data: e.keyCode 
+                    }, true);
                 });
         }
 
         /** Stany aplikacji */
         private state: { [ index: string ]: State } = {};
         private activeState: string = null;
+        public get currentState(): State { 
+            return this.state[this.activeState]; 
+        }
 
         /**
          * Rejestracja stanu aplikacja
@@ -152,7 +155,8 @@ module Core {
                 throw new Error('State already exists!');
 
             this.state[name] = state;
-            state.init(this);
+            state.kernel = this;
+            state.init();
             if(!this.activeState && this.mode === KernelMode.RUNNING)
                 this.setState(name);
             return this;
@@ -193,7 +197,7 @@ module Core {
 
             /** Renderowanie przy pomocy requestAnimationFrame */
             let loop = () => {
-                let state = this.state[this.activeState]
+                let state = this.currentState
                   , dt = (Date.now() - t) / 100;
 
                 /** Zmiana kursora */
@@ -202,9 +206,16 @@ module Core {
                     this.cursor = 'default';
                 }
 
+                /** Wysyłanie eventów przycisków */
+                if(!_(this.pressedKeys).isEmpty())
+                    this.broadcast({ type: Input.Type.KEY_DOWN, data: this.pressedKeys }, true);
+
                 /** W celu optymalizacji wywoływanie bezpośrednio */
                 ctx.fillStyle = 'black';
                 ctx.fillRect(0, 0, this.config.canvas.width, this.config.canvas.height);
+                
+                /** Rendering i aktualizacja stanu */
+                state.update();
                 state.draw(ctx);
 
                 /** Wymuszanie nowej klatki */
@@ -225,7 +236,7 @@ module Core {
             let postLoad = (pack: Resource.GamePack) => {
                 this.mode = KernelMode.RUNNING;
                 this.pack = pack;
-                setTimeout(_.bind(this.setState, this, 'main'), 2000);
+                setTimeout(_.bind(this.setState, this, 'main'), 2);
             };
 
             /** Wczytywanie zasobu */
@@ -241,15 +252,20 @@ module Game {
     import GUI = Core.Scene.GUI;
     import Template = Core.Graph.Template;
     import Input = Core.Input;
+    import Key = Core.Input.Key;
 
     export class LoadingState extends Core.State {
         protected load() {
             this.kernel.preload([ 
                 { name: 'logo', path: 'img/logo.png' }
             ]);
-            this.listener(Input.Type.LOADING, (event: Input.Event): void => {
-                this.progress.setProc(event.data);
-            });
+        }
+
+        protected listeners() {
+            this
+                .listener(Input.Type.LOADING, (event: Input.Event): void => {
+                    this.progress.setProc(event.data);
+                });
         }
 
         private progress: GUI.ProgressBar = null;
@@ -275,19 +291,81 @@ module Game {
         }
     };
 
-    export class GameState extends Core.State {
-        protected load() {
-            this.listener(Input.Type.LOADING, (event: Input.Event): void => {
-            });
+    class Player extends Core.Scene.KernelObject {
+        private sprite: Scene.Sprite = null;
+        constructor( rect: Types.Rect
+                   , private state: Core.State
+                   , public v: Types.Vec2 = new Types.Vec2)  {
+            super(rect);
         }
 
-        public start() {
+        /** Inicjacja */
+        public init() {
+            this.sprite = new Scene.Sprite('logo', this.rect).withKernel(this.kernel)
+        }
+        public draw(ctx: Types.Context) { 
+            this.sprite.draw(ctx); 
+        }
+
+        /** Interfejs KernelObject */
+        public update() {
+            this.rect.add(<Types.Rect> this.v);
+            this.v.mul(new Types.Vec2(0.98, 0.98));
+        }
+
+        /**
+         * Poruszanie się
+         * @param  {Types.Vec2} v Wektor ruchu
+         * @return {Player}       this
+         */
+        public move(v: Types.Vec2): Player {
+            // this.v.x = v.x * this.v.x < 0 ? 0 : this.v.x;
+            // this.v.y = v.y * this.v.y < 0 ? 0 : this.v.y;
+            if(this.v.length() < 4.0)
+                this.v.add(v);
+            return this;
+        }
+    };
+    export class GameState extends Core.State {
+        protected load() {
+            this.kernel.preload([ 
+                { name: 'ball', path: 'img/ball.png' }
+            ]);
+            this.add(
+                new Player(new Types.Rect(50, 50, 32, 32), this)
+            );
+        }
+
+        /** Gracz jest pierwszym elementem tablicy */
+        public get player(): Player {
+            if(!this.objects.length)
+                throw new Error('Player not found!');
+            return <Player> this.objects[0];
+        }
+
+        protected listeners() {
+            const speed = 0.06;
+            let vectors = {
+                  87: new Types.Vec2(0.0, -speed)
+                , 83: new Types.Vec2(0.0, speed)
+                , 65: new Types.Vec2(-speed, 0.0)
+                , 68: new Types.Vec2(speed, 0.0)
+            };
+            this
+                .listener(Input.Type.KEY_DOWN, (event: Input.Event) => {
+                    for(let key in event.data)
+                        this.player.move(vectors[key]);
+                });
         }
     };
 };
 /** Ładowanie silnika */
 (() => {
-    var socket = io.connect('ws://localhost:3000');
+    let socket = io.connect('ws://localhost:3000');
+    socket.emit('set nick', 'dupa');
+    socket.on('server error', (err) => {
+        throw new Error(err);
+    });
     new Core.Kernel('game_canvas')
         .regState('loading', new Game.LoadingState)
         .regState('main', new Game.GameState)

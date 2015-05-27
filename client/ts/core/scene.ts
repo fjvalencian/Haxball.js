@@ -4,12 +4,41 @@ module Core.Scene {
     import IType = Input.Type;
 
     /** Obiekty kernela */
-    class EventFilter implements Input.Listener {
-        protected forwarder = {};
+    export interface Forward { (event: Input.Event): void; };
+    export interface ForwardMap { [index: number]: Forward };
+    
+    export class ObjectTemplate implements Core.Graph.Drawable, Core.Graph.Updatable {
+        public kernel: Kernel;
+        public withKernel(kernel: Kernel): any { 
+            this.kernel = kernel;
+            return this;
+        }
 
-        /** Przekazywanie eventów */
-        public listener(type: Input.Type, forwarder: (event: Input.Event) => void) {
+        public init() {}
+        public draw(ctx: Types.Context) {}
+        public update() {}
+    };
+
+    class EventFilter extends ObjectTemplate implements Input.Listener {
+        protected forwarder: ForwardMap = {};
+
+        /**
+         * Mapowanie nasłuchu
+         * @param {Input.Type} type      Typ eventu
+         * @param {Forward}    forwarder Callback eventu
+         */
+        public listener(type: Input.Type, forwarder: Forward) {
             this.forwarder[type] = forwarder;
+            return this;
+        }
+
+        /**
+         * Mapowanie wielu nasłuchiwaczy
+         * @param {ForwardMap} forwarder Lista callbacków
+         */
+        public map(forwarder: ForwardMap) {
+            if(!_.isEmpty(forwarder))
+                this.forwarder = forwarder;
             return this;
         }
 
@@ -21,14 +50,11 @@ module Core.Scene {
         }
     };
 
-    export class KernelObject extends EventFilter implements Core.Graph.Drawable {
-        public kernel: Kernel = null;
-
+    /** Obiekt silnika */
+    export class KernelObject extends EventFilter {
         constructor(public rect: Types.Rect) {
             super();
         }
-        public draw(ctx: Types.Context) {}
-
         /**
          * Przekazywanie eventów jeśli wykonywane nad kontrolką
          * @param {any}         source Źródło
@@ -45,15 +71,27 @@ module Core.Scene {
     };
 
     /** Kontener na obiekty */
-    export class ContainerObject<T> extends EventFilter implements Core.Graph.Drawable {
+    export class ContainerObject<T extends ObjectTemplate> extends EventFilter {
         protected objects: T[] = [];
 
         /**
          * Dodawanie obiektu
          * @param {T} obj Obiekt sceny
          */
-        public add(obj: T): T {
-            obj && this.objects.push(obj);
+        public add(obj: T|T[]): any {
+            let config = (obj: any): any => {
+                (<any> obj).kernel = this.kernel;
+                (<ObjectTemplate>obj).init();
+                return obj;
+            };
+            if(!obj)
+                throw new Error('Empty object');
+            if(_(obj).isArray()) {
+                _(obj).each(config);
+                this.objects = this.objects.concat(<T[]> obj);
+            }
+            else
+                this.objects.push(<T> config(obj));
             return obj;
         }
 
@@ -78,8 +116,10 @@ module Core.Scene {
          */
         public draw(ctx: Types.Context) {
             /** for dla zwiększenia wydajności */
-            for(let i=0; i<this.objects.length; ++i)
-                (<any> this.objects[i]).draw(ctx, this);
+            for(let i=0; i<this.objects.length; ++i) {
+                (<ObjectTemplate> this.objects[i]).draw(ctx);
+                (<ObjectTemplate> this.objects[i]).update();
+            }
         }
     };
 

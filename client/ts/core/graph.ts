@@ -1,15 +1,23 @@
 /// <reference path="../types.ts" />
 
 module Core.Graph {
-    /** Obiekt renderowalny */
+    /** Czcionka */
     export interface Font { 
         size: number; 
         color: string; 
         name: string; 
     };
+
+    /** Obiekt renderowalny */
     export interface Drawable {
-        draw: (ctx: Types.Context, state: State) => void;
+        draw(ctx: Types.Context, state: State): void;
     };
+
+    /** Obiekty aktualizowane */
+    export interface Updatable {
+        update(): void;
+    };
+
     /**  TODO: Renderowanie przy pomocy WebGL */
     export module Template {
         /** Kształt renderowany przez funkcję */
