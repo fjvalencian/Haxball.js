@@ -16,11 +16,15 @@ module Types {
             this.y = vals[1];
         }
         
+        /** Kopiowanie */
+        public copy(v: Vec2): Vec2   { this.x = v.x; this.y = v.y; return this; }
+
         /** Operacje na wektorze */
         public divide(v: Vec2): Vec2 { this.x /= v.x; this.y /= v.y; return this; }
         public add(v: Vec2): Vec2    { this.x += v.x; this.y += v.y; return this; }
         public sub(v: Vec2): Vec2    { this.x -= v.x; this.y -= v.y; return this; }
         public mul(v: Vec2): Vec2    { this.x *= v.x; this.y *= v.y; return this; }
+        public invert(): Vec2        { this.x *= -1; this.y *= -1;   return this; }
 
         /**
          * Dystans między wektorami
@@ -66,6 +70,13 @@ module Types {
                    , public w: number =0
                    , public h: number =0) {
             super(x, y);
+        }
+
+        /** Kopiowanie */
+        public copy(v: Rect): Rect { 
+            this.x = v.x; this.y = v.y; 
+            this.w = v.w; this.h = v.h;
+            return this; 
         }
 
         /** Operacje na prostokącie */
@@ -116,6 +127,11 @@ module Types {
                 && this.y + this.h > rect.y
                 && this.y < rect.y + (rect.h || 0)
             );
+        }
+
+        /** Punkt środkowy */
+        public center(): Vec2 {
+            return new Vec2(this.x + this.w / 2, this.y + this.h / 2);
         }
     };
 

@@ -293,6 +293,8 @@ module Game {
 
     class Player extends Core.Scene.KernelObject {
         private sprite: Scene.Sprite = null;
+        public mass: number = 1.0;
+
         constructor( rect: Types.Rect
                    , private state: Core.State
                    , public v: Types.Vec2 = new Types.Vec2)  {
@@ -331,9 +333,46 @@ module Game {
             this.kernel.preload([ 
                 { name: 'ball', path: 'img/ball.png' }
             ]);
-            this.add(
-                new Player(new Types.Rect(50, 50, 32, 32), this)
-            );
+            this.add([
+                  new Player(new Types.Rect(50, 50, 32, 32), this)
+                , new Player(new Types.Rect(100, 50, 32, 32), this)
+                , new Player(new Types.Rect(150, 50, 32, 32), this)
+                , new Player(new Types.Rect(200, 50, 32, 32), this)
+                , new Player(new Types.Rect(250, 50, 32, 32), this)
+                , new Player(new Types.Rect(100, 100, 32, 32), this)
+                , new Player(new Types.Rect(150, 100, 32, 32), this)
+                , new Player(new Types.Rect(200, 100, 32, 32), this)
+                , new Player(new Types.Rect(250, 100, 32, 32), this)
+            ]);
+        }
+
+        /** 
+         * Testowanie kolizji
+         * http://ericleong.me/research/circle-circle/
+         */
+        public update() {
+            let center: Types.Vec2 = new Types.Vec2(16, 16);
+            for (let i = 0; i < this.objects.length; ++i)
+                for(let j = 0; j < this.objects.length; ++j) {
+                    let p1 = <Player> this.objects[i]
+                      , p2 = <Player> this.objects[j];
+
+                    let c1 = p1.rect.center()
+                      , c2 = p2.rect.center()
+                      , dist = Types.Vec2.distance(c1, c2);
+                    if(i != j && dist < (p1.rect.w + p2.rect.w) / 2) {
+                        var nx = (c2.x - c1.x) / dist; 
+                        var ny = (c2.y - c1.y) / dist; 
+                        var p = 2.0 * (p1.v.x*nx + p1.v.y*ny - p2.v.x*nx - p2.v.y*ny) / (p1.mass + p2.mass);
+                        p1.v.x -= p * p1.mass * nx; 
+                        p1.v.y -= p * p1.mass * ny;
+                        p2.v.x += p * p2.mass * nx; 
+                        p2.v.y += p * p2.mass * ny;
+
+                        p1.rect.add(p1.v);
+                        p2.rect.add(p2.v);
+                    }
+                }
         }
 
         /** Gracz jest pierwszym elementem tablicy */
