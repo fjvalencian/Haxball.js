@@ -9,21 +9,6 @@ var _: UnderscoreStatic = require('underscore')
   , io = require('socket.io').listen(3000);
 type Socket = SocketIO.Socket;
 
-/**
- * Bindowanie metod
- * @param {Socket} socket       Socket
- * @param {any}    context      Kontekst
- * @param {any }   callbacks    Callbacki
- */
-var bind = function(
-          socket: Socket
-        , context: any
-        , callbacks: { [index: string]: any }) {
-    _.each(callbacks, (val: any, key: string) => {
-        socket.on(key, _.bind(val, context));
-    });
-};
-
 module Core.Server {
     import Vec2 = Types.Vec2;
     import Rect = Types.Rect;
@@ -66,11 +51,19 @@ module Core.Server {
         }
         public getName(): string { return this.name; }
 
+        /** Układ graczy po dołączeniu */
+        private board: Rect = new Rect(50, 50, 650, 370);
+        private playerLocations: Vec2[] = [
+              new Vec2(50, 50)
+            , new Vec2(50, 100)
+            , new Vec2(50, 150)
+            , new Vec2(100, 100)
+        ];
+
         /** 
          * Testowanie kolizji
          * http://ericleong.me/research/circle-circle/
          */
-        private board: Rect = new Rect(0, 0, 750, 320);
         private updatePhysics() {
             let center: Vec2 = new Vec2(16, 16);
             for (let i = 0; i < this.players.length; ++i) {
@@ -143,14 +136,6 @@ module Core.Server {
             }
         }
 
-        /** Układ graczy po dołączeniu */
-        private playerLocations: Vec2[] = [
-              new Vec2(50, 50)
-            , new Vec2(50, 100)
-            , new Vec2(50, 150)
-            , new Vec2(100, 100)
-        ];
-
         /**
          * Logowanie się do pokoju, zwracanie aktualnej listy graczt
          * @type {string}
@@ -160,10 +145,14 @@ module Core.Server {
             if(!this.password || this.password === password) {
                 player
                     .setRoomID(this.players.length)
-                    .rect.copy(this.playerLocations[player.roomId].clone());
+                    .rect.copy(
+                        this.playerLocations[player.roomId]
+                            .clone()
+                            .add(this.board));
                 player
                     .send('room entered', <Data.RoomJoin> {
                           playerId: player.roomId
+                        , board: this.board
                         , players: <any> _(this.players).map(obj => {
                             return obj.getPlayerInfo();
                         })
@@ -177,7 +166,7 @@ module Core.Server {
             return this;
         }
         public unjoin(player: Player) {
-            this.broadcast('room unjoin', player.roomId);
+            this.broadcast('room exit', player.roomId);
             this.players = _(this.players).without(player);
         }
 
@@ -223,10 +212,6 @@ module Core.Server {
                 , rect: this.rect
             };
         }
-        public setRoomID(roomId: number): Player {
-            this.roomId = roomId;
-            return this;
-        }
 
         /** Poruszanie się */
         static vectors: Vec2[] = [
@@ -264,6 +249,10 @@ module Core.Server {
                             ? Room.rooms[<string> room]
                             : <Room> room;
             this.room.join(this);
+            return this;
+        }
+        public setRoomID(roomId: number): Player {
+            this.roomId = roomId;
             return this;
         }
 
