@@ -73,12 +73,11 @@ module Core.Graph {
                 , params: { 
                     text: string; 
                     font?: Font 
-                }
-                ) => {
-            if(params.font) {
-                ctx.fillStyle = params.font.color;
-                ctx.font = parseFont(params.font);
-            }     
+                }) => {
+            params.font = params.font || { size: 22, color: 'white', name: 'ArcadeClassic' };
+            
+            ctx.fillStyle = params.font.color;
+            ctx.font = parseFont(params.font); 
             ctx.fillText(params.text, pos.x, pos.y);
         };
 

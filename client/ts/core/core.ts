@@ -3,6 +3,7 @@
 /// <reference path="../../assets/defs/socket.io-client/socket.io-client.d.ts" />
 
 /// <reference path="../types.ts" />
+/// <reference path="../multiplayer.ts" />
 /// <reference path="input.ts" />
 /// <reference path="resource.ts" />
 /// <reference path="graph.ts" />
@@ -253,6 +254,7 @@ module Game {
     import Template = Core.Graph.Template;
     import Input = Core.Input;
     import Key = Core.Input.Key;
+    import Data = Core.Server.Data;
 
     export class LoadingState extends Core.State {
         protected load() {
@@ -291,120 +293,128 @@ module Game {
         }
     };
 
-    class Player extends Core.Scene.KernelObject {
-        private sprite: Scene.Sprite = null;
-        public mass: number = 1.0;
+    /** Socket do serwera */
+    var socket = io.connect('ws://localhost:3000');
 
+    /** Gracz */
+    class Player extends Core.Scene.KernelObject {
         constructor( rect: Types.Rect
                    , private state: Core.State
+                   , public id: number
+                   , public nick: string = ''
                    , public v: Types.Vec2 = new Types.Vec2)  {
             super(rect);
         }
 
-        /** Inicjacja */
+        private sprite: Scene.Sprite = null;
         public init() {
-            this.sprite = new Scene.Sprite('logo', this.rect).withKernel(this.kernel)
+            this.sprite = new Scene.Sprite('player', this.rect).withKernel(this.kernel);
         }
         public draw(ctx: Types.Context) { 
-            this.sprite.draw(ctx); 
+            this.sprite.draw(ctx);
+            /** nr gracza */
+            Template.Text(ctx
+                , new Types.Vec2(
+                      this.rect.x + this.rect.w / 2 - 7
+                    , this.rect.y + this.rect.h / 2 + 8)
+                , { text: <any> this.id });
+            /** nick */
+            Template.Text(ctx
+                , new Types.Vec2(
+                      this.rect.x + this.rect.w / 2 - (this.nick ? this.nick.length * 3.3 : 0)
+                    , this.rect.y + this.rect.h + 10)
+                , { text: this.nick
+                  , font: { size: 12, color: 'white', name: 'ArcadeClassic' } });
         }
-
-        /** Interfejs KernelObject */
         public update() {
             this.rect.add(<Types.Rect> this.v);
-            this.v.mul(new Types.Vec2(0.98, 0.98));
-        }
-
-        /**
-         * Poruszanie się
-         * @param  {Types.Vec2} v Wektor ruchu
-         * @return {Player}       this
-         */
-        public move(v: Types.Vec2): Player {
-            // this.v.x = v.x * this.v.x < 0 ? 0 : this.v.x;
-            // this.v.y = v.y * this.v.y < 0 ? 0 : this.v.y;
-            if(this.v.length() < 4.0)
-                this.v.add(v);
-            return this;
         }
     };
     export class GameState extends Core.State {
-        protected load() {
-            this.kernel.preload([ 
-                { name: 'ball', path: 'img/ball.png' }
-            ]);
-            this.add([
-                  new Player(new Types.Rect(50, 50, 32, 32), this)
-                , new Player(new Types.Rect(100, 50, 32, 32), this)
-                , new Player(new Types.Rect(150, 50, 32, 32), this)
-                , new Player(new Types.Rect(200, 50, 32, 32), this)
-                , new Player(new Types.Rect(250, 50, 32, 32), this)
-                , new Player(new Types.Rect(100, 100, 32, 32), this)
-                , new Player(new Types.Rect(150, 100, 32, 32), this)
-                , new Player(new Types.Rect(200, 100, 32, 32), this)
-                , new Player(new Types.Rect(250, 100, 32, 32), this)
-            ]);
+        private socket: SocketIOClient.Socket = null;
+
+        /**
+         * Tworzenie gracza
+         * @param  {Data.PlayerInfo} info Informacje z serwera
+         */
+        private createPlayer(info: Data.PlayerInfo): GameState {
+            this.add(new Player(
+                Types.Rect.clone(info.rect), this, this.objects.length, info.nick));
+            return this;
         }
 
-        /** 
-         * Testowanie kolizji
-         * http://ericleong.me/research/circle-circle/
-         */
-        public update() {
-            let center: Types.Vec2 = new Types.Vec2(16, 16);
-            for (let i = 0; i < this.objects.length; ++i)
-                for(let j = 0; j < this.objects.length; ++j) {
-                    let p1 = <Player> this.objects[i]
-                      , p2 = <Player> this.objects[j];
+        protected load() {
+            this.kernel.preload([ 
+                { name: 'player', path: 'img/player.png' }
+            ]);
+            socket
+                .on('connect', () => {
+                    console.log('Połączono!');
+                })
+                .emit('set nick', 'user' + Math.ceil(Math.random() * 10))
+                .emit('set room', 'test')
+                .on('server error', err => {
+                    throw new Error(err);
+                })
 
-                    let c1 = p1.rect.center()
-                      , c2 = p2.rect.center()
-                      , dist = Types.Vec2.distance(c1, c2);
-                    if(i != j && dist < (p1.rect.w + p2.rect.w) / 2) {
-                        var nx = (c2.x - c1.x) / dist; 
-                        var ny = (c2.y - c1.y) / dist; 
-                        var p = 2.0 * (p1.v.x*nx + p1.v.y*ny - p2.v.x*nx - p2.v.y*ny) / (p1.mass + p2.mass);
-                        p1.v.x -= p * p1.mass * nx; 
-                        p1.v.y -= p * p1.mass * ny;
-                        p2.v.x += p * p2.mass * nx; 
-                        p2.v.y += p * p2.mass * ny;
-
-                        p1.rect.add(p1.v);
-                        p2.rect.add(p2.v);
+                /** [ id, x, y, v.x, v.y ] */
+                .on('room update', (data: Data.RoomUpdate) => {
+                    let arr = new Float32Array(data);
+                    for(let i = 0; i < arr.length; i += 5) {
+                        let p = <Player> this.objects[arr[i]];
+                        p.rect.xy = [ arr[ i + 1 ]
+                                    , arr[ i + 2 ] 
+                                    ];
+                        p.v.xy = [ arr[ i + 3 ]
+                                 , arr[ i + 4 ] 
+                                 ];
                     }
-                }
+                })
+
+                /** Dołączanie się do pokoju */
+                .on('room entered', (data: Data.RoomJoin) => {
+                    this.playerId = data.playerId;
+                    _(data.players).each(
+                        _.bind(this.createPlayer, this));
+                })
+
+                /** Dołączanie nowego gracza */
+                .on('room join', (data: Data.PlayerInfo) => {
+                    this.createPlayer(data);
+                })
+
+                /** Odłączanie gracza */
+                .on('room unjoin', (data: number) => {
+                    this.remove(this.objects[data]);
+                });  
         }
 
         /** Gracz jest pierwszym elementem tablicy */
+        private playerId: number = 0;
         public get player(): Player {
             if(!this.objects.length)
                 throw new Error('Player not found!');
-            return <Player> this.objects[0];
+            return <Player> this.objects[this.playerId];
         }
 
         protected listeners() {
-            const speed = 0.06;
-            let vectors = {
-                  87: new Types.Vec2(0.0, -speed)
-                , 83: new Types.Vec2(0.0, speed)
-                , 65: new Types.Vec2(-speed, 0.0)
-                , 68: new Types.Vec2(speed, 0.0)
+            let keys = {
+                  87: Types.Direction.UP
+                , 83: Types.Direction.DOWN
+                , 65: Types.Direction.LEFT
+                , 68: Types.Direction.RIGHT
             };
             this
                 .listener(Input.Type.KEY_DOWN, (event: Input.Event) => {
                     for(let key in event.data)
-                        this.player.move(vectors[key]);
+                        if(typeof keys[key] !== 'undefined')
+                            socket.emit('move', keys[key]);
                 });
         }
     };
 };
 /** Ładowanie silnika */
 (() => {
-    let socket = io.connect('ws://localhost:3000');
-    socket.emit('set nick', 'dupa');
-    socket.on('server error', (err) => {
-        throw new Error(err);
-    });
     new Core.Kernel('game_canvas')
         .regState('loading', new Game.LoadingState)
         .regState('main', new Game.GameState)

@@ -78,7 +78,7 @@ module Core.Scene {
          * Dodawanie obiektu
          * @param {T} obj Obiekt sceny
          */
-        public add(obj: T|T[]): any {
+        public add(obj: T|T[], id?: number): any {
             let config = (obj: any): any => {
                 (<any> obj).kernel = this.kernel;
                 (<ObjectTemplate>obj).init();
@@ -91,8 +91,20 @@ module Core.Scene {
                 this.objects = this.objects.concat(<T[]> obj);
             }
             else
-                this.objects.push(<T> config(obj));
+                if(id)
+                    this.objects[id] = <T> config(obj);
+                else
+                    this.objects.push(<T> config(obj));
             return obj;
+        }
+
+        /**
+         * Kasowanie elementu
+         * @param  {T} obj Element
+         */
+        public remove(obj: T): ContainerObject<T> {
+            this.objects = _(this.objects).without(obj);
+            return this;
         }
 
         /**
@@ -137,7 +149,7 @@ module Core.Scene {
     export class Text extends ShapeWrapper {
         constructor( text: string
                    , pos: Types.Vec2
-                   , font: Graph.Font = { size: 22, color: 'white', name: 'ArcadeClassic' }) {
+                   , font?: Graph.Font) {
             super(Graph.Template.Text, { text: text, font: font }, pos)
         }
 
