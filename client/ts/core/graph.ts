@@ -90,5 +90,38 @@ module Core.Graph {
             if(params.img)
                 ctx.drawImage(params.img, rect.x, rect.y, rect.w, rect.h);
         };
+
+        /** Linia */
+        export var Line =
+                (ctx: Types.Context
+                , rect: Types.Rect
+                , params: { width: number; color: string; }
+                ) => {
+            ctx.beginPath();
+            ctx.lineWidth = params.width;
+            ctx.strokeStyle = params.color;
+
+            ctx.moveTo(rect.x, rect.y);
+            ctx.lineTo(rect.x + rect.w, rect.y + rect.h);
+            ctx.stroke();
+        };
+
+        /** Okrąg */
+        export var Circle =
+                (ctx: Types.Context
+                , pos: Types.Vec2
+                , params: { color?: string; r: number; stroke?: { width: number; color: string; } }
+                ) => {
+            ctx.beginPath();
+            ctx.arc(pos.x + params.r, pos.y + params.r, params.r, 0, 2.0 * Math.PI, false);
+            if(params.color) {
+                ctx.fillStyle = params.color;
+                ctx.fill();
+            }
+
+            ctx.lineWidth = params.stroke.width;
+            ctx.strokeStyle = params.stroke.color;
+            ctx.stroke();
+        };
     };
 };

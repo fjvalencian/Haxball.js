@@ -73,7 +73,10 @@ module Core.Scene {
     /** Kontener na obiekty */
     export class ContainerObject<T extends ObjectTemplate> extends EventFilter {
         protected objects: T[] = [];
-
+        public getObjects(): T[] {
+            return this.objects;
+        }
+        
         /**
          * Dodawanie obiektu
          * @param {T} obj Obiekt sceny
