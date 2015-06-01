@@ -52,7 +52,7 @@ module Core.Server {
         public getName(): string { return this.name; }
 
         /** Układ graczy po dołączeniu */
-        private board: Rect = new Rect(50, 50, 650, 370);
+        private board: Rect = new Rect(50, 50, 600, 370);
         private playerLocations: Vec2[] = [
               new Vec2(50, 50)
             , new Vec2(50, 100)
