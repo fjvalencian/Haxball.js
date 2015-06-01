@@ -144,6 +144,18 @@ module Types {
             );
         }
 
+        /**
+         * Zwracanie prostokąta z paddingiem
+         * @param  {number}  Padding
+         * @return {Rect}    Prostokąt
+         */
+        public withPadding(padding: number): Rect {
+            return new Rect( this.x + padding
+                           , this.y + padding
+                           , this.w - padding * 2.0
+                           , this.h - padding * 2.0);
+        }
+
         /** Punkt środkowy */
         public center(): Vec2 {
             return new Vec2(this.x + this.w / 2, this.y + this.h / 2);

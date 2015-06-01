@@ -110,10 +110,14 @@ module Core.Graph {
         export var Circle =
                 (ctx: Types.Context
                 , pos: Types.Vec2
-                , params: { color?: string; r: number; stroke?: { width: number; color: string; } }
+                , params: { color?: string; centered?: boolean; r: number; stroke?: { width: number; color: string; } }
                 ) => {
+            params.centered = !_.isUndefined(params.centered) && params.centered;
+
             ctx.beginPath();
-            ctx.arc(pos.x + params.r, pos.y + params.r, params.r, 0, 2.0 * Math.PI, false);
+            ctx.arc( pos.x + (!params.centered ? 0 : params.r)
+                   , pos.y + (!params.centered ? 0 : params.r)
+                   , params.r, 0, 2.0 * Math.PI, false);
             if(params.color) {
                 ctx.fillStyle = params.color;
                 ctx.fill();

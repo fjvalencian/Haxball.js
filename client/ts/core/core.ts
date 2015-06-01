@@ -308,11 +308,13 @@ module Game {
         constructor( rect: Types.Rect
                    , private state: Core.State
                    , private id: number
+                   , private type: Data.PlayerType
                    , public nick: string = ''
                    , public v: Types.Vec2 = new Types.Vec2)  {
             super(rect);
         }
-        public getID(): number { return this.id; }
+        public getType(): Data.PlayerType { return this.type; }
+        public getID(): number            { return this.id; }
 
         /** Sprite gracza */
         public update() {
@@ -323,30 +325,36 @@ module Game {
             Template.Circle(ctx
                 , this.rect
                 , {
-                    color: 'green'
+                      color: 'green'
                     , r: this.rect.w / 2
-                    , stroke: { 
-                          width: 3
-                        , color: '#003300'
-                    }
+                    , centered: true
+                    , stroke: { width: 3, color: 'black' }
                 });
-            Template.Circle(ctx
-                , new Types.Vec2(
-                      this.rect.x - this.rect.w * 0.20
-                    , this.rect.y - this.rect.w * 0.20)
-                , {
-                      r: this.rect.w * 0.70
-                    , stroke: { 
-                          width: 3
-                        , color: 'rgba(255, 255, 255, 0.09)'
-                    }
-                });
+
+            /** Obramówka wokół gracza */
+            if(this.type === Data.PlayerType.CURRENT_PLAYER) {
+                let r = this.rect.w * 0.7 + this.v.length() * 1.3;
+                Template.Circle(ctx
+                    , new Types.Vec2(
+                          this.rect.x + this.rect.w / 2 - r
+                        , this.rect.y + this.rect.h / 2 - r)
+                    , {
+                          r: r
+                        , centered: true
+                        , stroke: { 
+                              width: 3
+                            , color: 'rgba(255, 255, 255, 0.11)'
+                        }
+                    });
+            }
+
             /** nr gracza */
             Template.Text(ctx
                 , new Types.Vec2(
                       this.rect.x + this.rect.w / 2 - 6
                     , this.rect.y + this.rect.h / 2 + 8)
                 , { text: <any> this.id });
+
             /** nick */
             Template.Text(ctx
                 , new Types.Vec2(
@@ -387,18 +395,37 @@ module Game {
 
         /** Rendering */
         public draw(ctx: Types.Context) {
-            if (this.board) {
-                let size = new Types.Vec2(70, 150);
-                Template.Rect(ctx, this.board, { stroke: { width: 2, color: '#333' } });
+            if (this.board.w) {
+                /** Pionowe pasy boiska */
+                const w = this.board.w / 15;
+                for(let i = 0; i + w <= this.board.w; i += w)
+                    Template.Rect( ctx
+                             , new Types.Rect(this.board.x + i, this.board.y, w, this.board.h)
+                             , { color: (i / w) % 2 ? '#568926': '#4a7621'  });
+
+                /** Obramowanie boiska */
+                const size = new Types.Vec2(70, 150);
+                Template.Rect( ctx
+                             , this.board
+                             , { stroke: { width: 4, color: '#80a65c' } });
+                Template.Circle( ctx
+                               , this.board.center()
+                               , { r: 70
+                                 , stroke: { width: 4, color: '#80a65c' } })
+                Template.Line( ctx
+                             , new Types.Rect( this.board.x + this.board.w / 2 - 1
+                                             , this.board.y + 2
+                                             , 0
+                                             , this.board.h - 4)
+                             , { width: 4, color: '#80a65c' });
+
+                /** Bramki */
                 Template.Rect( ctx
                              , new Types.Rect(this.board.x + this.board.w, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
-                             , { stroke: { width: 2, color: 'black' } });
+                             , { stroke: { width: 4, color: 'black' } });
                 Template.Rect( ctx
                              , new Types.Rect(this.board.x - size.x, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
-                             , { stroke: { width: 2, color: 'black' } });
-                Template.Line( ctx
-                             , new Types.Rect(this.board.x + this.board.w / 2 - 1, this.board.y, 0, this.board.h)
-                             , { width: 2, color: '#333' });
+                             , { stroke: { width: 4, color: 'black' } });
             }
             super.draw(ctx);
         }
@@ -425,11 +452,25 @@ module Game {
          * @param {Data.RoomJoin} roomInfo Informacje o pokoju
          */
         private board: Types.Rect = new Types.Rect;
+        private player: Player = null;
+
         private onEnter(roomInfo: Data.RoomJoin) {
-            this.playerId = roomInfo.playerId;
             this.board.copy(roomInfo.board);
-            _(roomInfo.players).each(
-                _.bind(this.createPlayer, this));
+            _(roomInfo.players).each((player: Data.PlayerInfo, index: number) => {
+                let isPlayer = index === roomInfo.playerId
+                  , data = this.createPlayer( player
+                                 , isPlayer 
+                                     ? Data.PlayerType.CURRENT_PLAYER 
+                                     : Data.PlayerType.PLAYER);
+                if(isPlayer)
+                    this.player = data;
+            });
+        }
+        /** Gracz jest pierwszym elementem tablicy */
+        public get getPlayer(): Player {
+            if(!this.player)
+                throw new Error('Player not found!');
+            return this.player;
         }
         public getSize(): Types.Rect {
             return this.board;
@@ -451,25 +492,18 @@ module Game {
             this.remove(this.objects[data]);
         }
 
-        /** Gracz jest pierwszym elementem tablicy */
-        private playerId: number = 0;
-        public get player(): Player {
-            if(!this.objects.length)
-                throw new Error('Player not found!');
-            return this.objects[this.playerId];
-        }
-
         /**
          * Tworzenie gracza
          * @param  {Data.PlayerInfo} info Informacje z serwera
          */
-        private createPlayer(info: Data.PlayerInfo): Board {
-            this.add(
+        private createPlayer( info: Data.PlayerInfo
+                            , type: Data.PlayerType = Data.PlayerType.PLAYER): Player {
+            return this.add(
                 new Player( Types.Rect.clone(info.rect)
                           , this.state
                           , this.objects.length
+                          , type
                           , info.nick));
-            return this;
         }
     }
     export class GameState extends Core.State {
@@ -486,16 +520,16 @@ module Game {
                 .emit('set room', 'test');
         }
         protected load() {
-            this.kernel.preload([ 
-                { name: 'player', path: 'img/player.png' }
-            ]);
+            // this.kernel.preload([ 
+            //     { name: 'player', path: 'img/player.png' }
+            // ]);
         }
         public draw(ctx: Types.Context) {
             super.draw(ctx);
+            
             /** Dolne menu */
-            ctx.save();
-
             let size = this.board.getSize();
+            ctx.save();
             ctx.translate(size.x, size.y + size.h)
             _(this.board.getObjects()).each((obj: Player, index: number) => {
                 Template.Text(ctx
@@ -503,7 +537,6 @@ module Game {
                     , { text: obj.nick
                       , font: { size: 12, color: 'white', name: 'ArcadeClassic' } });
             });
-
             ctx.restore();
         }
     };

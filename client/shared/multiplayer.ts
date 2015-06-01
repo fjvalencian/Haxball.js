@@ -15,8 +15,12 @@ module Core {
         });
     };
 
-    /** Dane serwera */
     export module Server.Data {
+        export enum PlayerType {
+            CURRENT_PLAYER, BALL, PLAYER 
+        };
+
+        /** Dane serwera */
         export type RoomUpdate = ArrayBuffer;
 
         /** Informacja o graczu */
