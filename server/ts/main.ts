@@ -32,7 +32,7 @@ module Core.Server {
     export const Config = {
           delay: 1000 / 60
         , player: {
-              size: new Rect(70, 70, 32, 32)
+              size: new Rect(0, 0, 29, 29)
             , mass: 1.0
             , speed: 0.06
         }
@@ -42,22 +42,28 @@ module Core.Server {
     export class Room {
         /** Gracze w pokoju */
         static rooms: { [index: string]: Room } = {};
-        private players: Player[] = [];
 
         constructor(private name: string) {
             Room.rooms[name] = this;
+
+            this.players.push(new Player(null, true));
             setInterval( _.bind(this.update, this)
                        , Config.delay);
         }
         public getName(): string { return this.name; }
 
         /** Układ graczy po dołączeniu */
-        private board: Rect = new Rect(50, 50, 600, 370);
+        private board: Rect = new Rect(2, 2, 746, 370);
+        private gateHeight: number = 150;
         private playerLocations: Vec2[] = [
               new Vec2(50, 50)
             , new Vec2(50, 100)
             , new Vec2(50, 150)
+            , new Vec2(50, 200)
+            , new Vec2(50, 250)
             , new Vec2(100, 100)
+            , new Vec2(100, 150)
+            , new Vec2(100, 200)
         ];
 
         /** 
@@ -70,13 +76,14 @@ module Core.Server {
                 let p1 = this.players[i];
 
                 /** Kolizje z górną częścią boiska */
-                if(this.board.y >= p1.rect.y 
+                if(this.board.y >= p1.rect.y
                         || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
                     p1.rect.y += p1.v.y *= -1;
 
-                /** Kolizje z bokami boiska */
-                if(this.board.x >= p1.rect.x
-                        || this.board.x + this.board.w <= p1.rect.x + p1.rect.w)
+                /** Kolizje z bokami boiska, kulka przelatuje przez bok */
+                let c = this.board.y + this.board.h / 2;
+                if(!(p1.info.ball && p1.rect.y >= c - this.gateHeight / 2 && p1.rect.y + p1.rect.h <= c + this.gateHeight / 2)
+                        && (this.board.x >= p1.rect.x || this.board.x + this.board.w <= p1.rect.x + p1.rect.w))
                     p1.rect.x += p1.v.x *= -1;
 
                 /** Kolizje z innymi zawodnikami */
@@ -91,10 +98,10 @@ module Core.Server {
                           , p = 2.0 * (p1.v.x * nx + p1.v.y * ny - p2.v.x * nx - p2.v.y * ny) / (p1.mass + p2.mass);
                         p1.v.x -= p * p1.mass * nx;
                         p1.v.y -= p * p1.mass * ny;
+                        p1.rect.add(p1.v);
+
                         p2.v.x += p * p2.mass * nx;
                         p2.v.y += p * p2.mass * ny;
-
-                        p1.rect.add(p1.v);
                         p2.rect.add(p2.v);
                     }
                 }
@@ -104,16 +111,6 @@ module Core.Server {
             }
         }
 
-        /**
-         * Broadcast wiadomości po klientach
-         * @param {string} type Type wiadomości
-         * @param {any}    data Dane
-         */
-        public broadcast(type: string, data: any): Room {
-            if(type.length && data)
-                io.to(this.name).emit(type, data);
-            return this;
-        }
 
         /**
          * Aktualizacja pozycji graczy
@@ -121,19 +118,88 @@ module Core.Server {
          * 16B [ x, y, v.x, v.y ]
          */
         private static PACK_SIZE: number = 5;
+        private players: Player[] = [];
+        private ball: Player = null;
+
         private update() {
-            /** Aktualizacja fizyki */
+            /** Aktualizowanie fizyki */
             this.updatePhysics();
 
-            /** Uaktualnianie stanu po klientach */
+            /** Rozsyłanie jeśli jest ktoś w pokoju */
             if(this.players.length) {
                 let pack = new Float32Array(Room.PACK_SIZE * this.players.length);
                 _(this.players).each((player, index) => {
-                    pack.set( <any> [ index, player.rect.x, player.rect.y, player.v.x, player.v.y ]
+                    pack.set( <any> [ index, player.info.rect.x, player.info.rect.y, player.v.x, player.v.y ]
                             , index * Room.PACK_SIZE);
                 });
-                this.broadcast('room update', pack.buffer);
+                this.broadcast('room update', new Float32Array(pack).buffer);
             }
+        }
+
+        /**
+         * Broadcast wiadomości po klientach
+         * @param {string} type Type wiadomości
+         * @param {any}    data Dane
+         */
+        public broadcast(type: string, data: any, player?: Player): Room {
+            if(type.length && data)
+                (player? player.getSocket().broadcast: io)
+                    .to(this.name)
+                    .emit(type, data);
+            return this;
+        }
+
+        /**
+         * Po odejściu gracza numerki na koszulkach 
+         * się zmieniają i przydzielane są nowe
+         * @return {Room} [description]
+         */
+        public addToMatch(player: Player): Room {
+            /** Wysyłanie do gracza listy wszystkich graczy */
+            player
+                .setTeam(this.players.length % 2 ? Data.Team.RIGHT : Data.Team.LEFT)
+                .send('room entered', <Data.RoomEntered> {
+                      board: this.board
+                    , gateHeight: this.gateHeight
+                    , msg: 'Witamy w naszych skromnych prograch!'
+                })
+                .getSocket().join(this.name);
+
+            this.players.push(player);
+            return this.rebuildPlayerList();
+        }
+
+        private rebuildPlayerList(): Room {
+           /** Przydzielanie numerków */
+           let list = _(this.players)
+                .chain()
+                .each((p: Player, index: number) => {
+                    p.info.number = index;
+                    /** Piłka na środku */
+                    if(p.info.ball) {
+                        p.info.rect
+                            .sub(p.info.rect.center())
+                            .add(this.board.center());
+                        p.info.rect.h = p.info.rect.w = 20;
+                        p.mass = 1000;
+
+                    /** Gracze z przeciwnej drużyny */
+                    } else {
+                        p.info.rect.copy(
+                            this.playerLocations[index]
+                                .clone()
+                                .add(this.board));
+                        if(p.info.team === Data.Team.RIGHT)
+                            p.info.rect.x = this.board.x + this.board.w - p.info.rect.x;
+                    }
+                })
+                .pluck('info')
+                .value();
+            /** Uaktualnianie listy graczy */
+            this.broadcast('room rebuild', <Data.RoomJoin> {
+                players: list
+            });
+            return this;
         }
 
         /**
@@ -143,31 +209,15 @@ module Core.Server {
         private password: string = null;
         public join(player: Player, password?: string): Room {
             if(!this.password || this.password === password) {
-                player
-                    .setRoomID(this.players.length)
-                    .rect.copy(
-                        this.playerLocations[player.roomId]
-                            .clone()
-                            .add(this.board));
-                player
-                    .send('room entered', <Data.RoomJoin> {
-                          playerId: player.roomId
-                        , board: this.board
-                        , players: <any> _(this.players).map(obj => {
-                            return obj.getPlayerInfo();
-                        })
-                    });
-
-                /** Ogłaszanie zalogowania */
-                player.getSocket().join(this.name);
-                this.players.push(player);
-                this.broadcast('room join', player.getPlayerInfo());
+                /** REFACTORING */
+                this.addToMatch(player);
             }
             return this;
         }
         public unjoin(player: Player) {
-            this.broadcast('room exit', player.roomId);
+            /** Uaktualnianie listy graczy */
             this.players = _(this.players).without(player);
+            this.rebuildPlayerList();
         }
 
         /** Jeśli wymaga hasła zwróci true */
@@ -182,35 +232,72 @@ module Core.Server {
         static players: Player[] = [];
 
         /** Identyfikator gracza w roomie */
-        public roomId: number = 0;
         constructor( private socket: Socket
+                   , ball: boolean = false
+                   , team: Data.Team = Data.Team.SPECTATORS
                    , public rect: Rect = Config.player.size.clone()
                    , public mass: number = Config.player.mass
                    , public v: Vec2 = new Vec2) {
-            bind(this.socket, this, {
-                  'disconnect' : this.disconnect
-                , 'set nick'   : this.setNick
-                , 'set room'   : this.setRoom
-                , 'move'       : this.move
+            if(this.socket)
+                bind(this.socket, this, {
+                      'disconnect' : this.disconnect
+                    , 'set nick'   : this.setNick
+                    , 'set room'   : this.setRoom
+                    , 'move'       : this.move
+                });
+            _(this.info).extend({
+                  ball: ball
+                , team: team
             });
+
+            /** Rejestrowania gracza */
             Player.players.push(this);
         }
 
         /** Socket */
         public getSocket(): Socket  { return this.socket; }
         public send(type: string, data: any): Player {
-            this.socket.emit(type, data);
+            if(this.socket)
+                this.socket.emit(type, data);
             return this;
         }
 
-        /** Pobieranie informacji o graczu */
-        public getPlayerInfo(): Data.PlayerInfo {
-            return {
-                  roomId: this.roomId
-                , nick: this.nick
-                , op: false
-                , rect: this.rect
-            };
+        /** Łatwiejsze wysyłanie informacji */
+        public info: Data.PlayerInfo = {
+              number: 0
+            , nick: ''
+            , op: false
+            , ball: false
+            , rect: this.rect
+            , team: Data.Team.SPECTATORS
+        };
+        public setNumber(number: number): Player {
+            this.info.number = number;
+            return this;
+        }
+
+        /** Czy jest w grze */
+        public isPlaying(): boolean {
+            return this.info.team !== Data.Team.SPECTATORS;
+        }
+        public setTeam(team: Data.Team): Player {
+            this.info.team = team;
+            return this;
+        }
+
+        /** Restrykcje nicku */
+        private static validateNick(nick: string): boolean {
+            return nick && nick.length < 30;
+        }
+        public setNick(nick: string) {
+            if(_.findWhere(Player.players, { nick: nick })
+                    && !Player.validateNick(nick)) {
+                serverError(this.socket, Errors.NICK_ALREADY_EXISTS);
+
+            } else {
+                this.info.nick = nick;
+                this.socket.emit('auth success', nick);
+            }
         }
 
         /** Poruszanie się */
@@ -221,25 +308,10 @@ module Core.Server {
             , new Vec2(Config.player.speed, 0.0)
         ];
         public move(dir: Types.Direction|Types.Vec2) {
-            // this.v.x = v.x * this.v.x < 0 ? 0 : this.v.x;
-            // this.v.y = v.y * this.v.y < 0 ? 0 : this.v.y;
-            if(this.v.length() < 4.0)
+            if(this.v.length() < 4.0 && this.isPlaying())
                 this.v.add(dir instanceof Types.Vec2 
                             ? dir 
                             : Player.vectors[<Types.Direction> dir]);
-        }
-
-        /** Zmiana nicku */
-        public nick: string = null;
-        public setNick(nick: string) {
-            if(_.findWhere(Player.players, { nick: nick })
-                    && !Player.validateNick(this.nick)) {
-                serverError(this.socket, Errors.NICK_ALREADY_EXISTS);
-            } else
-                this.nick = nick;
-        }
-        private static validateNick(nick: string): Boolean {
-            return nick && nick.length < 30;
         }
 
         /** Ustawianie pokoju */
@@ -249,10 +321,6 @@ module Core.Server {
                             ? Room.rooms[<string> room]
                             : <Room> room;
             this.room.join(this);
-            return this;
-        }
-        public setRoomID(roomId: number): Player {
-            this.roomId = roomId;
             return this;
         }
 

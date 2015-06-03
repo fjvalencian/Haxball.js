@@ -16,6 +16,9 @@ module Core {
     };
 
     export module Server.Data {
+        export enum Team {
+            LEFT, SPECTATORS, RIGHT  
+        };
         export enum PlayerType {
             CURRENT_PLAYER, BALL, PLAYER 
         };
@@ -25,16 +28,23 @@ module Core {
 
         /** Informacja o graczu */
         export interface PlayerInfo {
-            roomId: number;
+            number: number;
             nick: string;
             op: boolean;
+            ball: boolean;
             rect: Types.Rect;
+            team: Team;
         };
 
-        /** Wiadomość podczas dołączania się do pokoju */
-        export interface RoomJoin {
-            playerId: number;
+        /** Wiadomość wysyłana do gracza podłączającego się do pokoju */
+        export interface RoomEntered {
             board: Types.Rect;
+            gateHeight: number;
+            msg: string;
+        };
+
+        /** Wiadomość rozsyłana  */
+        export interface RoomJoin {
             players: PlayerInfo[];
         };
     };

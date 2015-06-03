@@ -306,26 +306,29 @@ module Game {
     /** Gracz */
     class Player extends Core.Scene.KernelObject {
         constructor( rect: Types.Rect
-                   , private state: Core.State
-                   , private id: number
                    , private type: Data.PlayerType
-                   , public nick: string = ''
-                   , public v: Types.Vec2 = new Types.Vec2)  {
+                   , public info: Data.PlayerInfo
+                   , public v: Types.Vec2 = new Types.Vec2 /** Prędkość */)  {
             super(rect);
         }
         public getType(): Data.PlayerType { return this.type; }
-        public getID(): number            { return this.id; }
 
         /** Sprite gracza */
         public update() {
             this.rect.add(<Types.Rect> this.v);
         }
-        public draw(ctx: Types.Context) { 
+        public draw(ctx: Types.Context) {
+            let color = 'green';
+            if(this.info.ball)
+                color = 'white';
+            else if(this.info.team === Data.Team.RIGHT)
+                color = 'red';
+
             /** Gracz */
             Template.Circle(ctx
                 , this.rect
                 , {
-                      color: 'green'
+                      color: color
                     , r: this.rect.w / 2
                     , centered: true
                     , stroke: { width: 3, color: 'black' }
@@ -349,31 +352,32 @@ module Game {
             }
 
             /** nr gracza */
-            Template.Text(ctx
-                , new Types.Vec2(
-                      this.rect.x + this.rect.w / 2 - 6
-                    , this.rect.y + this.rect.h / 2 + 8)
-                , { text: <any> this.id });
+            if(!this.info.ball)
+                Template.Text(ctx
+                    , new Types.Vec2(
+                          this.rect.x + this.rect.w / 2 - 6
+                        , this.rect.y + this.rect.h / 2 + 8)
+                    , { text: <any> this.info.number });
 
             /** nick */
             Template.Text(ctx
                 , new Types.Vec2(
-                      this.rect.x + this.rect.w / 2 - (this.nick ? this.nick.length * 3.3 : 0)
+                      this.rect.x + this.rect.w / 2 - (this.info.nick ? this.info.nick.length * 3.3 : 0)
                     , this.rect.y + this.rect.h + 20)
-                , { text: this.nick
+                , { text: this.info.nick
                   , font: { size: 12, color: 'white', name: 'ArcadeClassic' } });
         }
     };
 
     type Socket = SocketIOClient.Socket;
     class Board extends Core.Scene.ContainerObject<Player> {
-        constructor(private state: Core.State) {
+        constructor( private state: Core.State
+                   , private player: string) {
             super();
             Core.bind(socket, this, {
                   'room update'  : this.onUpdate
                 , 'room entered' : this.onEnter
-                , 'room join'    : this.onJoin
-                , 'room exit'    : this.onExit
+                , 'room rebuild' : this.onRebuild
             });
         }
 
@@ -394,39 +398,43 @@ module Game {
         }
 
         /** Rendering */
+        private board: Types.Rect = new Types.Rect;
+        private gateHeight: number = 0;
+
         public draw(ctx: Types.Context) {
-            if (this.board.w) {
-                /** Pionowe pasy boiska */
-                const w = this.board.w / 15;
-                for(let i = 0; i + w <= this.board.w; i += w)
-                    Template.Rect( ctx
-                             , new Types.Rect(this.board.x + i, this.board.y, w, this.board.h)
-                             , { color: (i / w) % 2 ? '#568926': '#4a7621'  });
+            if(!this.board.w)
+                return;
+                
+            /** Pionowe pasy boiska */
+            const w = this.board.w / 14;
+            for(let i = 0; i <= 14; i++)
+                Template.Rect( ctx
+                         , new Types.Rect(this.board.x + i * w, this.board.y, w + 1, this.board.h)
+                         , { color: i % 2 ? '#568926': '#4a7621'  });
 
-                /** Obramowanie boiska */
-                const size = new Types.Vec2(70, 150);
-                Template.Rect( ctx
-                             , this.board
-                             , { stroke: { width: 4, color: '#80a65c' } });
-                Template.Circle( ctx
-                               , this.board.center()
-                               , { r: 70
-                                 , stroke: { width: 4, color: '#80a65c' } })
-                Template.Line( ctx
-                             , new Types.Rect( this.board.x + this.board.w / 2 - 1
-                                             , this.board.y + 2
-                                             , 0
-                                             , this.board.h - 4)
-                             , { width: 4, color: '#80a65c' });
+            /** Obramowanie boiska */
+            const size = new Types.Vec2(6, this.gateHeight);
+            Template.Rect( ctx
+                         , this.board
+                         , { stroke: { width: 4, color: '#80a65c' } });
+            Template.Circle( ctx
+                           , this.board.center()
+                           , { r: 70
+                             , stroke: { width: 4, color: '#80a65c' } })
+            Template.Line( ctx
+                         , new Types.Rect( this.board.x + this.board.w / 2 - 1
+                                         , this.board.y + 2
+                                         , 0
+                                         , this.board.h - 4)
+                         , { width: 4, color: '#80a65c' });
 
-                /** Bramki */
-                Template.Rect( ctx
-                             , new Types.Rect(this.board.x + this.board.w, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
-                             , { stroke: { width: 4, color: 'black' } });
-                Template.Rect( ctx
-                             , new Types.Rect(this.board.x - size.x, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
-                             , { stroke: { width: 4, color: 'black' } });
-            }
+            /** Bramki */
+            Template.Rect( ctx
+                         , new Types.Rect(this.board.x + this.board.w, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
+                         , { stroke: { width: 4, color: 'black' } });
+            Template.Rect( ctx
+                         , new Types.Rect(this.board.x - size.x, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
+                         , { stroke: { width: 4, color: 'black' } });
             super.draw(ctx);
         }
 
@@ -437,7 +445,7 @@ module Game {
         private onUpdate(data: Data.RoomUpdate) {
             let arr = new Float32Array(data);
             for(let i = 0; i < arr.length; i += 5) {
-                let p = this.objects[arr[i]];
+                let p = this.objects[ arr[i] ];
                 p.rect.xy = [ arr[ i + 1 ]
                             , arr[ i + 2 ] 
                             ];
@@ -451,45 +459,20 @@ module Game {
          * Po pomyślnym wejściu do pokoju
          * @param {Data.RoomJoin} roomInfo Informacje o pokoju
          */
-        private board: Types.Rect = new Types.Rect;
-        private player: Player = null;
-
-        private onEnter(roomInfo: Data.RoomJoin) {
+        private onEnter(roomInfo: Data.RoomEntered) {
             this.board.copy(roomInfo.board);
-            _(roomInfo.players).each((player: Data.PlayerInfo, index: number) => {
-                let isPlayer = index === roomInfo.playerId
-                  , data = this.createPlayer( player
-                                 , isPlayer 
-                                     ? Data.PlayerType.CURRENT_PLAYER 
-                                     : Data.PlayerType.PLAYER);
-                if(isPlayer)
-                    this.player = data;
-            });
-        }
-        /** Gracz jest pierwszym elementem tablicy */
-        public get getPlayer(): Player {
-            if(!this.player)
-                throw new Error('Player not found!');
-            return this.player;
-        }
-        public getSize(): Types.Rect {
-            return this.board;
+            this.gateHeight = roomInfo.gateHeight;
         }
 
         /**
          * Podczas podłączania się nowego gracza
-         * @param {Data.PlayerInfo} data Nowy gracz
+         * @param {Data.PlayerInfo} info Nowy gracz
          */
-        private onJoin(data: Data.PlayerInfo) {
-            this.createPlayer(data);
-        }
-
-        /**
-         * Podczas wyjścia gracza
-         * @param {number} data Identyfikator gracza
-         */
-        private onExit(data: number) {
-            this.remove(this.objects[data]);
+        private onRebuild(info: Data.RoomJoin) {
+            this.objects = [];
+            _(info.players).each((player: Data.PlayerInfo) => {
+                this.createPlayer(player);
+            });
         }
 
         /**
@@ -499,45 +482,26 @@ module Game {
         private createPlayer( info: Data.PlayerInfo
                             , type: Data.PlayerType = Data.PlayerType.PLAYER): Player {
             return this.add(
-                new Player( Types.Rect.clone(info.rect)
-                          , this.state
-                          , this.objects.length
-                          , type
-                          , info.nick));
+                new Player(Types.Rect.clone(info.rect), type, info));
+        }
+
+        public getSize(): Types.Rect {
+            return this.board;
         }
     }
     export class GameState extends Core.State {
         private score: Scene.Text = new Scene.Text('1:1', new Types.Vec2(355, 26));
-        private board: Board = new Board(this);
 
         public start() {
-            this.add([
-                  <any> this.board
-                , this.score
-            ]);
             socket
                 .emit('set nick', 'user' + Math.ceil(Math.random() * 10))
-                .emit('set room', 'test');
-        }
-        protected load() {
-            // this.kernel.preload([ 
-            //     { name: 'player', path: 'img/player.png' }
-            // ]);
-        }
-        public draw(ctx: Types.Context) {
-            super.draw(ctx);
-            
-            /** Dolne menu */
-            let size = this.board.getSize();
-            ctx.save();
-            ctx.translate(size.x, size.y + size.h)
-            _(this.board.getObjects()).each((obj: Player, index: number) => {
-                Template.Text(ctx
-                    , new Types.Vec2(index * 90, 15)
-                    , { text: obj.nick
-                      , font: { size: 12, color: 'white', name: 'ArcadeClassic' } });
-            });
-            ctx.restore();
+                .on('auth success', (nick: string) => {
+                    socket.emit('set room', 'test');
+                    this.add([
+                          <any> new Board(this, nick)
+                        , this.score
+                    ]);
+                });
         }
     };
 };
