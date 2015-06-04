@@ -17,23 +17,36 @@ module Core {
 
     export module Server.Data {
         export enum Team {
-            LEFT, SPECTATORS, RIGHT  
+              LEFT
+            , SPECTATORS
+            , RIGHT  
         };
         export enum PlayerType {
-            CURRENT_PLAYER, BALL, PLAYER 
+              CURRENT_PLAYER
+            , PLAYER 
+        };
+        export enum PlayerFlags {
+              ROOM_OP = 1 << 1
+            , BALL    = 1 << 2
         };
 
         /** Dane serwera */
         export type RoomUpdate = ArrayBuffer;
 
         /** Informacja o graczu */
-        export interface PlayerInfo {
-            number: number;
-            nick: string;
-            op: boolean;
-            ball: boolean;
-            rect: Types.Rect;
-            team: Team;
+        export class PlayerInfo extends Types.Copyable {
+            public number: number = 0;
+            public flags: number = 0;
+            public team: number = Team.LEFT;
+
+            public nick: string = '';
+            public rect: Types.Rect = new Types.Rect;
+
+            /** Sprawdzanie flag */
+            public hasFlag(flag: number): boolean {
+                return (this.flags & flag) === flag;
+            }
+            public isBall = _.bind(this.hasFlag, this, PlayerFlags.BALL);
         };
 
         /** Wiadomość wysyłana do gracza podłączającego się do pokoju */

@@ -5,6 +5,24 @@ module Types {
     export type Canvas = HTMLCanvasElement;
     export type Context = CanvasRenderingContext2D;
 
+    /** Interfejs kopiowania */
+    export class Copyable {
+        public copy(obj: any): any {
+            _(_(this).keys()).forEach((key: string) => {
+                var val = obj[key]
+                  , dest = this[key]
+                  , type = typeof val;
+
+                if(type === 'object') {
+                    if(dest.copy)
+                        dest.copy(val);
+                } else if(type !== 'undefined')
+                    this[key] = val;
+            });
+            return this;
+        }
+    };
+
     /** Kierunki poruszania się */
     export enum Direction {
           UP
@@ -14,9 +32,10 @@ module Types {
     };
 
     /** Wektor xy */
-    export class Vec2 {
+    export class Vec2 extends Copyable {
         constructor( public x: number = 0
                    , public y: number = 0) {
+            super();
         }
         public get xy() { return [ this.x, this.y ]; }
         public set xy(vals:number[]) {

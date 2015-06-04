@@ -1,44 +1,191 @@
 /// <reference path="../defs/node/node.d.ts" />
 /// <reference path="../defs/socket.io/socket.io.d.ts" />
 /// <reference path="../defs/underscore/underscore.d.ts" />
-
 /// <reference path="./types.ts" />
 /// <reference path="./multiplayer.ts" />
 
 var _: UnderscoreStatic = require('underscore')
   , io = require('socket.io').listen(3000);
-type Socket = SocketIO.Socket;
 
+type Socket = SocketIO.Socket;
 module Core.Server {
-    import Vec2 = Types.Vec2;
-    import Rect = Types.Rect;
+    export import Rect = Types.Rect;
+    export import Vec2 = Types.Vec2;
 
     /** Kody błędów */
-    enum Errors {
+    export enum Errors {
           NICK_ALREADY_EXISTS
-        , INVALID_NICK 
+        , INVALID_NICK
     };
-    
+
     /**
      * Błąd na serwerze
      * @param {Socket} socket Socket
      * @param {Errors} err    Kod błędu
      */
-    var serverError = function(socket: Socket, err: Errors) {
+    export function serverError(socket: Socket, err: Errors) {
         socket.emit('server error', { code: err });
     };
-    
+
     /** Konfiguracja serwera */
+    export interface PlayerType {
+        rect: Rect;
+        mass: number;
+    };
     export const Config = {
           delay: 1000 / 60
-        , player: {
-              size: new Rect(0, 0, 29, 29)
-            , mass: 1.0
-            , speed: 0.06
+        , moveSpeed: 0.06
+        , types: {
+              player: <PlayerType> {
+                  rect: new Rect(0, 0, 32, 32)
+                , mass: 1.0
+            }
+            , ball: <PlayerType> {
+                  rect: new Rect(0, 0, 21, 21)
+                , mass: 1000.0
+            }
         }
     };
 
-    /** Pokój */
+    /**
+     * Bindowanie metod
+     * @param {Socket} socket       Socket
+     * @param {any}    context      Kontekst
+     * @param {any }   callbacks    Callbacki
+     */
+    export function bind(
+              socket: any
+            , context: any
+            , callbacks: { [index: string]: any }) {
+        _.each(callbacks, (val: any, key: string) => {
+            socket.on(key, _.bind(val, context));
+        });
+    };
+
+    export class Player {
+        /** Gracze w całym serwerze */
+        static players: Player[] = [];
+
+        /** Identyfikator gracza w roomie */
+        constructor(
+              private socket: Socket
+            /** Do PlayerInfo*/
+            , ball: boolean = false
+            , team: Data.Team = Data.Team.SPECTATORS
+
+            /** Zależne od piłki */
+            , public rect: Rect = new Rect
+            , public mass: number = 0
+            , public v: Vec2 = new Vec2) {
+            
+            this.setType(Config.types[ball ? 'ball' : 'player']);
+            if (this.socket)
+                bind(this.socket, this, {
+                      'disconnect': this.disconnect
+                    , 'set nick': this.setNick
+                    , 'set room': this.setRoom
+                    , 'move': this.move
+                    /** Strzelanie */
+                    , 'enable shooting': _.bind(this.shoot, this, false)
+                    , 'disable shooting': _.bind(this.shoot, this, true)
+                });
+            _(this.info).extend({
+                  flags: ball ? Data.PlayerFlags.BALL : 0
+                , team: team
+                , rect: rect
+            });
+
+            /** Rejestrowania gracza */
+            Player.players.push(this);
+        }
+
+        /** Strzelanie piłeczką */
+        public shooting: boolean = false;
+        private shoot(release: boolean = false): Player {
+            this.shooting = !release;
+            return this;
+        }
+
+        /** Socket */
+        public getSocket(): Socket { return this.socket; }
+        public send(type: string, data: any): Player {
+            if (this.socket)
+                this.socket.emit(type, data);
+            return this;
+        }
+
+        /** Ustawianie stanu gracza */
+        private type: PlayerType = null;
+        private setType(type: PlayerType): Player {
+            this.type = type;
+            this.rect.copy(type.rect);
+            this.mass = type.mass;
+            return this;
+        }
+
+        /** Łatwiejsza serializacja danych */
+        public info: Data.PlayerInfo = new Data.PlayerInfo;
+        public setNumber(number: number): Player {
+            this.info.number = number;
+            return this;
+        }
+
+        /** Czy jest w grze */
+        public isPlaying(): boolean {
+            return this.info.team !== Data.Team.SPECTATORS;
+        }
+        public setTeam(team: Data.Team): Player {
+            this.info.team = team;
+            return this;
+        }
+
+        /** Restrykcje nicku */
+        private static validateNick(nick: string): boolean {
+            return nick && nick.length < 30;
+        }
+        public setNick(nick: string) {
+            if (_.findWhere(Player.players, { nick: nick })
+                    && !Player.validateNick(nick)) {
+                serverError(this.socket, Errors.NICK_ALREADY_EXISTS);
+
+            } else {
+                this.info.nick = nick;
+                this.socket.emit('auth success', nick);
+            }
+        }
+
+        /** Poruszanie się */
+        static vectors: Vec2[] = [
+              new Vec2(0.0, -Config.moveSpeed)
+            , new Vec2(0.0, Config.moveSpeed)
+            , new Vec2(-Config.moveSpeed, 0.0)
+            , new Vec2(Config.moveSpeed, 0.0)
+        ];
+        public move(dir: Types.Direction|Types.Vec2) {
+            if (this.v.length() < 4.0 && this.isPlaying())
+                this.v.add(dir instanceof Types.Vec2
+                    ? dir
+                    : Player.vectors[<Types.Direction> dir]);
+        }
+
+        /** Ustawianie pokoju */
+        private room: Room = null;
+        public setRoom(room: Room|string): Player {
+            this.room = _.isString(room)
+                ? Room.rooms[<string> room]
+                : <Room> room;
+            this.room.join(this);
+            return this;
+        }
+
+        /** Rozłączanie */
+        private disconnect() {
+            if (this.room)
+                this.room.unjoin(this);
+            Player.players = _(Player.players).without(this);
+        }
+    };
+
     export class Room {
         /** Gracze w pokoju */
         static rooms: { [index: string]: Room } = {};
@@ -47,8 +194,9 @@ module Core.Server {
             Room.rooms[name] = this;
 
             this.players.push(new Player(null, true));
-            setInterval( _.bind(this.update, this)
-                       , Config.delay);
+            setInterval(
+                  _.bind(this.update, this)
+                , Config.delay);
         }
         public getName(): string { return this.name; }
 
@@ -76,26 +224,27 @@ module Core.Server {
                 let p1 = this.players[i];
 
                 /** Kolizje z górną częścią boiska */
-                if(this.board.y >= p1.rect.y
-                        || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
+                if (this.board.y >= p1.rect.y
+                    || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
                     p1.rect.y += p1.v.y *= -1;
 
                 /** Kolizje z bokami boiska, kulka przelatuje przez bok */
                 let c = this.board.y + this.board.h / 2;
-                if(!(p1.info.ball && p1.rect.y >= c - this.gateHeight / 2 && p1.rect.y + p1.rect.h <= c + this.gateHeight / 2)
+                if (!(p1.info.isBall() 
+                        && p1.rect.y >= c - this.gateHeight / 2 && p1.rect.y + p1.rect.h <= c + this.gateHeight / 2)
                         && (this.board.x >= p1.rect.x || this.board.x + this.board.w <= p1.rect.x + p1.rect.w))
                     p1.rect.x += p1.v.x *= -1;
 
                 /** Kolizje z innymi zawodnikami */
                 for (let j = 0; j < this.players.length; ++j) {
                     let p2 = this.players[j]
-                      , c1 = p1.rect.center()
-                      , c2 = p2.rect.center()
-                      , dist = Vec2.distance(c1, c2);
+                        , c1 = p1.rect.center()
+                        , c2 = p2.rect.center()
+                        , dist = Vec2.distance(c1, c2);
                     if (i != j && dist < (p1.rect.w + p2.rect.w) / 2) {
                         let nx = (c2.x - c1.x) / dist
-                          , ny = (c2.y - c1.y) / dist
-                          , p = 2.0 * (p1.v.x * nx + p1.v.y * ny - p2.v.x * nx - p2.v.y * ny) / (p1.mass + p2.mass);
+                            , ny = (c2.y - c1.y) / dist
+                            , p = 2.0 * (p1.v.x * nx + p1.v.y * ny - p2.v.x * nx - p2.v.y * ny) / (p1.mass + p2.mass);
                         p1.v.x -= p * p1.mass * nx;
                         p1.v.y -= p * p1.mass * ny;
                         p1.rect.add(p1.v);
@@ -103,6 +252,10 @@ module Core.Server {
                         p2.v.x += p * p2.mass * nx;
                         p2.v.y += p * p2.mass * ny;
                         p2.rect.add(p2.v);
+
+                        /** Piłka jest przed graczem */
+                        if(p2.shooting && p1.info.isBall())
+                            p1.v.mul(new Vec2(2.5, 2.5));
                     }
                 }
                 /** Aktualizowanie prędkości */
@@ -111,6 +264,8 @@ module Core.Server {
             }
         }
 
+        /** Lista graczy */
+        private players: Player[] = [];
 
         /**
          * Aktualizacja pozycji graczy
@@ -118,19 +273,16 @@ module Core.Server {
          * 16B [ x, y, v.x, v.y ]
          */
         private static PACK_SIZE: number = 5;
-        private players: Player[] = [];
-        private ball: Player = null;
-
         private update() {
             /** Aktualizowanie fizyki */
             this.updatePhysics();
 
             /** Rozsyłanie jeśli jest ktoś w pokoju */
-            if(this.players.length) {
+            if (this.players.length) {
                 let pack = new Float32Array(Room.PACK_SIZE * this.players.length);
                 _(this.players).each((player, index) => {
-                    pack.set( <any> [ index, player.info.rect.x, player.info.rect.y, player.v.x, player.v.y ]
-                            , index * Room.PACK_SIZE);
+                    pack.set(<any>[index, player.info.rect.x, player.info.rect.y, player.v.x, player.v.y]
+                        , index * Room.PACK_SIZE);
                 });
                 this.broadcast('room update', new Float32Array(pack).buffer);
             }
@@ -142,8 +294,8 @@ module Core.Server {
          * @param {any}    data Dane
          */
         public broadcast(type: string, data: any, player?: Player): Room {
-            if(type.length && data)
-                (player? player.getSocket().broadcast: io)
+            if (type.length && data)
+                (player ? player.getSocket().broadcast : io)
                     .to(this.name)
                     .emit(type, data);
             return this;
@@ -159,7 +311,7 @@ module Core.Server {
             player
                 .setTeam(this.players.length % 2 ? Data.Team.RIGHT : Data.Team.LEFT)
                 .send('room entered', <Data.RoomEntered> {
-                      board: this.board
+                    board: this.board
                     , gateHeight: this.gateHeight
                     , msg: 'Witamy w naszych skromnych prograch!'
                 })
@@ -169,27 +321,31 @@ module Core.Server {
             return this.rebuildPlayerList();
         }
 
+        /**
+         * Podczas przydzielenia nowego gracza
+         * automatycznie rozmieszcza graczy na planszy
+         */
         private rebuildPlayerList(): Room {
-           /** Przydzielanie numerków */
-           let list = _(this.players)
+            /** Przydzielanie numerków */
+            let list = _(this.players)
                 .chain()
                 .each((p: Player, index: number) => {
                     p.info.number = index;
+                    p.v.xy = [ 0, 0 ];
+
                     /** Piłka na środku */
-                    if(p.info.ball) {
+                    if(p.info.isBall()) {
                         p.info.rect
                             .sub(p.info.rect.center())
                             .add(this.board.center());
-                        p.info.rect.h = p.info.rect.w = 20;
-                        p.mass = 1000;
 
-                    /** Gracze z przeciwnej drużyny */
+                        /** Gracze z przeciwnej drużyny */
                     } else {
                         p.info.rect.copy(
                             this.playerLocations[index]
                                 .clone()
                                 .add(this.board));
-                        if(p.info.team === Data.Team.RIGHT)
+                        if (p.info.team === Data.Team.RIGHT)
                             p.info.rect.x = this.board.x + this.board.w - p.info.rect.x;
                     }
                 })
@@ -203,17 +359,23 @@ module Core.Server {
         }
 
         /**
-         * Logowanie się do pokoju, zwracanie aktualnej listy graczt
-         * @type {string}
+         * Logowanie się do pokoju
+         * @param  {Player} player   Gracz
+         * @param  {string} password Hasło
          */
         private password: string = null;
         public join(player: Player, password?: string): Room {
-            if(!this.password || this.password === password) {
+            if (!this.password || this.password === password) {
                 /** REFACTORING */
                 this.addToMatch(player);
             }
             return this;
         }
+
+        /**
+         * Wychodzenie z pokoju
+         * @param {Player} player Gracz
+         */
         public unjoin(player: Player) {
             /** Uaktualnianie listy graczy */
             this.players = _(this.players).without(player);
@@ -223,116 +385,9 @@ module Core.Server {
         /** Jeśli wymaga hasła zwróci true */
         public isLocked(): boolean {
             return <any> (this.password && this.password.length);
-        } 
-    };
-
-    /** Gracz */
-    export class Player {
-        /** Gracze w całym serwerze */
-        static players: Player[] = [];
-
-        /** Identyfikator gracza w roomie */
-        constructor( private socket: Socket
-                   , ball: boolean = false
-                   , team: Data.Team = Data.Team.SPECTATORS
-                   , public rect: Rect = Config.player.size.clone()
-                   , public mass: number = Config.player.mass
-                   , public v: Vec2 = new Vec2) {
-            if(this.socket)
-                bind(this.socket, this, {
-                      'disconnect' : this.disconnect
-                    , 'set nick'   : this.setNick
-                    , 'set room'   : this.setRoom
-                    , 'move'       : this.move
-                });
-            _(this.info).extend({
-                  ball: ball
-                , team: team
-            });
-
-            /** Rejestrowania gracza */
-            Player.players.push(this);
-        }
-
-        /** Socket */
-        public getSocket(): Socket  { return this.socket; }
-        public send(type: string, data: any): Player {
-            if(this.socket)
-                this.socket.emit(type, data);
-            return this;
-        }
-
-        /** Łatwiejsze wysyłanie informacji */
-        public info: Data.PlayerInfo = {
-              number: 0
-            , nick: ''
-            , op: false
-            , ball: false
-            , rect: this.rect
-            , team: Data.Team.SPECTATORS
-        };
-        public setNumber(number: number): Player {
-            this.info.number = number;
-            return this;
-        }
-
-        /** Czy jest w grze */
-        public isPlaying(): boolean {
-            return this.info.team !== Data.Team.SPECTATORS;
-        }
-        public setTeam(team: Data.Team): Player {
-            this.info.team = team;
-            return this;
-        }
-
-        /** Restrykcje nicku */
-        private static validateNick(nick: string): boolean {
-            return nick && nick.length < 30;
-        }
-        public setNick(nick: string) {
-            if(_.findWhere(Player.players, { nick: nick })
-                    && !Player.validateNick(nick)) {
-                serverError(this.socket, Errors.NICK_ALREADY_EXISTS);
-
-            } else {
-                this.info.nick = nick;
-                this.socket.emit('auth success', nick);
-            }
-        }
-
-        /** Poruszanie się */
-        static vectors: Vec2[] = [
-              new Vec2(0.0, -Config.player.speed)
-            , new Vec2(0.0, Config.player.speed)
-            , new Vec2(-Config.player.speed, 0.0)
-            , new Vec2(Config.player.speed, 0.0)
-        ];
-        public move(dir: Types.Direction|Types.Vec2) {
-            if(this.v.length() < 4.0 && this.isPlaying())
-                this.v.add(dir instanceof Types.Vec2 
-                            ? dir 
-                            : Player.vectors[<Types.Direction> dir]);
-        }
-
-        /** Ustawianie pokoju */
-        private room: Room = null;
-        public setRoom(room: Room|string): Player {
-            this.room = _.isString(room) 
-                            ? Room.rooms[<string> room]
-                            : <Room> room;
-            this.room.join(this);
-            return this;
-        }
-
-        /** Rozłączanie */
-        private disconnect() {
-            if(this.room)
-                this.room.unjoin(this);
-            Player.players = _(Player.players).without(this);
         }
     };
 };
-
 import Server = Core.Server;
 (() => {
     let room: Server.Room = new Server.Room('test');
