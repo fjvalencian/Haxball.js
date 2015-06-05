@@ -52,7 +52,7 @@ module Core.Scene {
 
     /** Obiekt silnika */
     export class KernelObject extends EventFilter {
-        constructor(public rect: Types.Rect) {
+        constructor(public rect: Types.Rect = new Types.Rect) {
             super();
         }
         /**
@@ -70,8 +70,18 @@ module Core.Scene {
         }
     };
 
+    /** Layout do rozmieszczania obiektów */
+    export interface Layout {
+        (object: any, objects: any[], container: ContainerObject<any>)
+    };
+
     /** Kontener na obiekty */
-    export class ContainerObject<T extends ObjectTemplate> extends EventFilter {
+    export class ContainerObject<T extends ObjectTemplate> extends KernelObject {
+        constructor( rect = new Types.Rect
+                   , public layout: Layout = null) {
+            super(rect);
+        }
+
         protected objects: T[] = [];
         public getObjects(): T[] {
             return this.objects;
@@ -82,11 +92,16 @@ module Core.Scene {
          * @param {T} obj Obiekt sceny
          */
         public add(obj: T|T[], id?: number): any {
+            /** Konfiguracja pojedynczego elementu */
             let config = (obj: any): any => {
                 (<any> obj).kernel = this.kernel;
                 (<ObjectTemplate>obj).init();
+                if(this.layout)
+                    this.layout(obj, this.objects, this);
                 return obj;
             };
+
+            /** Dodawanie obiektu */
             if(!obj)
                 throw new Error('Empty object');
             if(_(obj).isArray()) {
@@ -130,11 +145,16 @@ module Core.Scene {
          * @param {Types.Context} ctx Kontekst canvasa
          */
         public draw(ctx: Types.Context) {
+            ctx.save();
+            ctx.translate(this.rect.x, this.rect.y);
+            
             /** for dla zwiększenia wydajności */
             for(let i=0; i<this.objects.length; ++i) {
                 (<ObjectTemplate> this.objects[i]).draw(ctx);
                 (<ObjectTemplate> this.objects[i]).update();
             }
+
+            ctx.restore();
         }
     };
 

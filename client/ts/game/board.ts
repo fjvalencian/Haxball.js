@@ -48,7 +48,7 @@ module Game {
                 
             /** Pionowe pasy boiska */
             const w = this.board.w / 14;
-            for(let i = 0; i <= 14; i++)
+            for(let i = 0; i < 14; i++)
                 Template.Rect( ctx
                          , new Types.Rect(this.board.x + i * w, this.board.y, w + 1, this.board.h)
                          , { color: i % 2 ? '#568926': '#4a7621'  });
@@ -114,12 +114,29 @@ module Game {
          */
         private player: Player = null;
         private onRebuild(info: Data.RoomJoin) {
+            let added = info.players.length !== this.objects.length;
+
+            /** Różnica nicków między planszami */
+            let localNicks = _(this.objects).map(obj => { return obj.info.nick; })
+              , newNicks   = _(info.players).pluck('nick');
+
+            /** Tworzenie graczy od nowa */
             this.objects = [];
             _(info.players).each((player: Data.PlayerInfo) => {
                 let p = this.createPlayer(player);
                 if(p.isPlayer())
                 	this.player = p;
             });
+
+            /** Wysyłanie wiadomości o przebudowie */
+            if(localNicks.length)
+                this.kernel.broadcast({ 
+                      type: Input.Type.PLAYER_LIST_UPDATE
+                    , data: {
+                          removed: _(localNicks).difference(newNicks)
+                        , added: _(newNicks).difference(localNicks)
+                    }
+                }, true);
         }
         public getPlayer(): Player {
 			return this.player;

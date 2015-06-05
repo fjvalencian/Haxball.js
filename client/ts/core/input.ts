@@ -18,6 +18,8 @@ module Core.Input {
         , KEY_UP
         /** ładowanie */
         , LOADING
+        /** multiplayer */
+        , PLAYER_LIST_UPDATE
     };
 
     /** Event z kernela */

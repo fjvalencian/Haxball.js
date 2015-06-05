@@ -110,7 +110,7 @@ module Core {
          * @param {Input.Event} event         Event
          * @param {Boolean}     currentState  Rozsyłanie na bierzący stan
          */
-        public broadcast(event: Input.Event, currentState: Boolean = false): Kernel {
+        public broadcast(event: Input.Event, currentState: boolean = false): Kernel {
             if(!currentState)
                 _.each(this.state, (state: State) => {
                     state.onEvent(this, event);
@@ -121,7 +121,7 @@ module Core {
         }
 
         /** Rejestrowanie nasłuchiwania eventów */
-        private pressedKeys: { [index: number]: Boolean } = {};
+        private pressedKeys: { [index: number]: boolean } = {};
         private regListeners() {
             $(window)
                 .keydown(e => { 

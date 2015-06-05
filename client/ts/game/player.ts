@@ -26,11 +26,11 @@ module Game {
         public draw(ctx: Types.Context) {
             let player = this.isPlayer()
               , ball = this.info.isBall()
-           	  , color = 'green';
+           	  , color = '#008B8B';
             if(ball)
                 color = 'white';
             else if(this.info.team == Data.Team.RIGHT)
-                color = 'red';
+                color = '#DC143C';
 
             /** Gracz */
             Template.Circle(ctx
@@ -67,8 +67,8 @@ module Game {
             if(!ball)
                 Template.Text(ctx
                     , new Types.Vec2(
-                          this.rect.x + this.rect.w / 2 - 6
-                        , this.rect.y + this.rect.h / 2 + 8)
+                          this.rect.x + this.rect.w / 2 - 4
+                        , this.rect.y + this.rect.h / 2 + 6)
                     , { text: <any> this.info.number });
 
             /** nick */
@@ -76,7 +76,7 @@ module Game {
                 Template.Text(ctx
                     , new Types.Vec2(
                           this.rect.x + this.rect.w / 2 - (this.info.nick ? this.info.nick.length * 3.3 : 0)
-                        , this.rect.y + this.rect.h + 20)
+                        , this.rect.y + this.rect.h + 15)
                     , { text: this.info.nick
                       , font: { size: 12, color: 'white', name: 'ArcadeClassic' } });
         }

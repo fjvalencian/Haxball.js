@@ -35,13 +35,14 @@ module Core.Server {
     export const Config = {
           delay: 1000 / 60
         , moveSpeed: 0.06
+        , maxSpeed: 3.0
         , types: {
               player: <PlayerType> {
-                  rect: new Rect(0, 0, 32, 32)
+                  rect: new Rect(0, 0, 20, 20)
                 , mass: 1.0
             }
             , ball: <PlayerType> {
-                  rect: new Rect(0, 0, 21, 21)
+                  rect: new Rect(0, 0, 10, 10)
                 , mass: 1000.0
             }
         }
@@ -162,7 +163,7 @@ module Core.Server {
             , new Vec2(Config.moveSpeed, 0.0)
         ];
         public move(dir: Types.Direction|Types.Vec2) {
-            if (this.v.length() < 4.0 && this.isPlaying())
+            if (this.v.length() < Config.maxSpeed && this.isPlaying())
                 this.v.add(dir instanceof Types.Vec2
                     ? dir
                     : Player.vectors[<Types.Direction> dir]);
@@ -201,8 +202,8 @@ module Core.Server {
         public getName(): string { return this.name; }
 
         /** Układ graczy po dołączeniu */
-        private board: Rect = new Rect(2, 2, 746, 370);
-        private gateHeight: number = 150;
+        private board: Rect = new Rect(20, 40, 546, 270);
+        private gateHeight: number = 100;
         private playerLocations: Vec2[] = [
               new Vec2(50, 50)
             , new Vec2(50, 100)

@@ -74,7 +74,7 @@ module Core.Graph {
                     text: string; 
                     font?: Font 
                 }) => {
-            params.font = params.font || { size: 22, color: 'white', name: 'ArcadeClassic' };
+            params.font = params.font || { size: 15, color: 'white', name: 'ArcadeClassic' };
             
             ctx.fillStyle = params.font.color;
             ctx.font = parseFont(params.font); 

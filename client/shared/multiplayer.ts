@@ -29,7 +29,7 @@ module Core {
               ROOM_OP = 1 << 1
             , BALL    = 1 << 2
         };
-
+        
         /** Dane serwera */
         export type RoomUpdate = ArrayBuffer;
 
