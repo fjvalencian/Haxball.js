@@ -28,7 +28,7 @@ module Core.Server {
     };
 
     /** Konfiguracja serwera */
-    export interface PlayerType {
+    export interface PlayerTemplate {
         rect: Rect;
         mass: number;
     };
@@ -36,33 +36,21 @@ module Core.Server {
           delay: 1000 / 60
         , moveSpeed: 0.06
         , maxSpeed: 3.0
+        , shootPower: 1.5
+        , board: new Rect(0, 0, 546, 470)
         , types: {
-              player: <PlayerType> {
-                  rect: new Rect(0, 0, 20, 20)
+              player: <PlayerTemplate> {
+                  rect: new Rect(0, 0, 28, 28)
                 , mass: 1.0
             }
-            , ball: <PlayerType> {
-                  rect: new Rect(0, 0, 10, 10)
-                , mass: 1000.0
+            , ball: <PlayerTemplate> {
+                  rect: new Rect(0, 0, 20, 20)
+                , mass: 10.0
             }
         }
     };
 
-    /**
-     * Bindowanie metod
-     * @param {Socket} socket       Socket
-     * @param {any}    context      Kontekst
-     * @param {any }   callbacks    Callbacki
-     */
-    export function bind(
-              socket: any
-            , context: any
-            , callbacks: { [index: string]: any }) {
-        _.each(callbacks, (val: any, key: string) => {
-            socket.on(key, _.bind(val, context));
-        });
-    };
-
+    /** Gracz */
     export class Player {
         /** Gracze w całym serwerze */
         static players: Player[] = [];
@@ -71,15 +59,21 @@ module Core.Server {
         constructor(
               private socket: Socket
             /** Do PlayerInfo*/
-            , ball: boolean = false
+            , flags: number = 0
             , team: Data.Team = Data.Team.SPECTATORS
 
             /** Zależne od piłki */
             , public rect: Rect = new Rect
             , public mass: number = 0
             , public v: Vec2 = new Vec2) {
-            
-            this.setType(Config.types[ball ? 'ball' : 'player']);
+
+            /** Flagi gracza */
+            this.setTemplate(
+                Config.types[
+                    Core.hasFlag(flags, Data.PlayerFlags.BALL) 
+                        ? 'ball' 
+                        : 'player'
+                ]);
             if (this.socket)
                 bind(this.socket, this, {
                       'disconnect': this.disconnect
@@ -87,23 +81,33 @@ module Core.Server {
                     , 'set room': this.setRoom
                     , 'move': this.move
                     /** Strzelanie */
-                    , 'enable shooting': _.bind(this.shoot, this, false)
-                    , 'disable shooting': _.bind(this.shoot, this, true)
+                    , 'set flags': this.setFlags
                 });
             _(this.info).extend({
-                  flags: ball ? Data.PlayerFlags.BALL : 0
-                , team: team
+                  team: team
                 , rect: rect
+                , flags: flags
             });
 
             /** Rejestrowania gracza */
             Player.players.push(this);
         }
 
+        /**
+         * Ustawianie nowych flag i broadcast
+         * @param  {number} flags Nowe flagi
+         */
+        public setFlags(flags: number): Player {
+            this.info.flags = flags;
+            this.room.broadcast('new flags', <Data.NewFlags> {
+                  nick:  this.info.nick
+                , flags: this.info.flags
+            });
+            return this;
+        }
+
         /** Strzelanie piłeczką */
-        public shooting: boolean = false;
         private shoot(release: boolean = false): Player {
-            this.shooting = !release;
             return this;
         }
 
@@ -116,8 +120,8 @@ module Core.Server {
         }
 
         /** Ustawianie stanu gracza */
-        private type: PlayerType = null;
-        private setType(type: PlayerType): Player {
+        private type: PlayerTemplate = null;
+        private setTemplate(type: PlayerTemplate): Player {
             this.type = type;
             this.rect.copy(type.rect);
             this.mass = type.mass;
@@ -146,7 +150,7 @@ module Core.Server {
         }
         public setNick(nick: string) {
             if (_.findWhere(Player.players, { nick: nick })
-                    && !Player.validateNick(nick)) {
+                    || !Player.validateNick(nick)) {
                 serverError(this.socket, Errors.NICK_ALREADY_EXISTS);
 
             } else {
@@ -187,6 +191,7 @@ module Core.Server {
         }
     };
 
+    /** Pokój */
     export class Room {
         /** Gracze w pokoju */
         static rooms: { [index: string]: Room } = {};
@@ -194,15 +199,15 @@ module Core.Server {
         constructor(private name: string) {
             Room.rooms[name] = this;
 
-            this.players.push(new Player(null, true));
+            this.players.push(new Player(null, Data.PlayerFlags.BALL));
             setInterval(
-                  _.bind(this.update, this)
+                  this.update.bind(this)
                 , Config.delay);
         }
         public getName(): string { return this.name; }
 
         /** Układ graczy po dołączeniu */
-        private board: Rect = new Rect(20, 40, 546, 270);
+        private board: Rect = Config.board;
         private gateHeight: number = 100;
         private playerLocations: Vec2[] = [
               new Vec2(50, 50)
@@ -226,7 +231,7 @@ module Core.Server {
 
                 /** Kolizje z górną częścią boiska */
                 if (this.board.y >= p1.rect.y
-                    || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
+                        || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
                     p1.rect.y += p1.v.y *= -1;
 
                 /** Kolizje z bokami boiska, kulka przelatuje przez bok */
@@ -236,29 +241,35 @@ module Core.Server {
                         && (this.board.x >= p1.rect.x || this.board.x + this.board.w <= p1.rect.x + p1.rect.w))
                     p1.rect.x += p1.v.x *= -1;
 
+
                 /** Kolizje z innymi zawodnikami */
-                for (let j = 0; j < this.players.length; ++j) {
-                    let p2 = this.players[j]
-                        , c1 = p1.rect.center()
-                        , c2 = p2.rect.center()
-                        , dist = Vec2.distance(c1, c2);
-                    if (i != j && dist < (p1.rect.w + p2.rect.w) / 2) {
-                        let nx = (c2.x - c1.x) / dist
-                            , ny = (c2.y - c1.y) / dist
-                            , p = 2.0 * (p1.v.x * nx + p1.v.y * ny - p2.v.x * nx - p2.v.y * ny) / (p1.mass + p2.mass);
-                        p1.v.x -= p * p1.mass * nx;
-                        p1.v.y -= p * p1.mass * ny;
-                        p1.rect.add(p1.v);
+                if(!p1.info.isBall())
+                    for (let j = 0; j < this.players.length; ++j) {
+                        let p2 = this.players[j]
+                          , c1 = p1.rect.center()
+                          , c2 = p2.rect.center()
+                          , dist = Vec2.distance(c1, c2);
+                        if (i != j && dist < (p1.rect.w + p2.rect.w) / 2) {
+                            let nx = (c2.x - c1.x) / dist
+                              , ny = (c2.y - c1.y) / dist
+                              , p = 2.0 * (p1.v.x * nx + p1.v.y * ny - p2.v.x * nx - p2.v.y * ny) / (p1.mass + p2.mass);
 
-                        p2.v.x += p * p2.mass * nx;
-                        p2.v.y += p * p2.mass * ny;
-                        p2.rect.add(p2.v);
+                            /** Kolizja z graczem */
+                            p1.v.x -= p * p1.mass * nx;
+                            p1.v.y -= p * p1.mass * ny;
+                            p1.rect.add(p1.v);
 
-                        /** Piłka jest przed graczem */
-                        if(p2.shooting && p1.info.isBall())
-                            p1.v.mul(new Vec2(2.5, 2.5));
+                            if(p1.info.hasFlag(Data.PlayerFlags.SHOOTING)) {
+                                p = 1.0;
+                                nx *= Config.shootPower;
+                                ny *= Config.shootPower;
+                            }
+
+                            p2.v.x += p * p2.mass * nx;
+                            p2.v.y += p * p2.mass * ny;
+                            p2.rect.add(p2.v);
+                        }
                     }
-                }
                 /** Aktualizowanie prędkości */
                 p1.rect.add(
                     p1.v.mul(new Vec2(0.98, 0.98)));
@@ -282,7 +293,14 @@ module Core.Server {
             if (this.players.length) {
                 let pack = new Float32Array(Room.PACK_SIZE * this.players.length);
                 _(this.players).each((player, index) => {
-                    pack.set(<any>[index, player.info.rect.x, player.info.rect.y, player.v.x, player.v.y]
+                    pack.set(<any> 
+                          [
+                              index
+                            , player.info.rect.x
+                            , player.info.rect.y
+                            , player.v.x
+                            , player.v.y
+                          ]
                         , index * Room.PACK_SIZE);
                 });
                 this.broadcast('room update', new Float32Array(pack).buffer);

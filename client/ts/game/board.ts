@@ -1,13 +1,16 @@
 /// <reference path="./player.ts" />
+
 module Game {
 	export class Board extends Core.Scene.ContainerObject<Player> {
-        constructor( private state: Core.State
+        constructor( rect: Types.Rect
+                   , private state: Core.State
                    , private playerNick: string) {
-            super();
+            super(rect);
             Core.bind(socket, this, {
                   'room update'  : this.onUpdate
                 , 'room entered' : this.onEnter
                 , 'room rebuild' : this.onRebuild
+                , 'new flags'    : this.newFlags
             });
         }
 
@@ -22,27 +25,28 @@ module Game {
             this
                 .listener(Input.Type.KEY_DOWN, (event: Input.Event) => {
                     for(let key in event.data) {
-                    	/** Jeśli jest klawiszem ruchu */
+                        /** Jeśli jest klawiszem ruchu */
                         if(typeof keys[key] !== 'undefined')
                             socket.emit('move', keys[key]);
 
                         /** Jeśli jest klawiszem strzału */
                         if(key == Input.Key.SPACE && this.player)
-							this.player.shoot();
+                            this.player.shoot();
                     }
                 })
                 .listener(Input.Type.KEY_UP, (event: Input.Event) => {
                     /** Jeśli jest klawiszem strzału */
                     if(event.data == Input.Key.SPACE)
-						this.player.shoot(true);
+                        this.player.shoot(true);
                 });
         }
 
         /** Rendering */
+        private background: Scene.RenderTarget;
         private board: Types.Rect = new Types.Rect;
         private gateHeight: number = 0;
 
-        public draw(ctx: Types.Context) {
+        public drawBoard(ctx: Types.Context) {
             if(!this.board.w)
                 return;
                 
@@ -78,6 +82,27 @@ module Game {
                          , { stroke: { width: 4, color: 'black' } });
             super.draw(ctx);
         }
+        public draw(ctx: Types.Context) {
+            if (!this.player || !this.background)
+                return;
+
+            ctx.save();
+            ctx.beginPath();
+
+            ctx.translate(this.rect.x, this.rect.y);
+            ctx.rect(0, 0, this.rect.w, this.rect.h);
+            ctx.clip();
+            
+            let cam = new Types.Vec2( 
+                  -this.player.rect.x * 0.8 - this.rect.x + this.rect.w / 2
+                , -this.player.rect.y * 0.8 - this.rect.y + this.rect.h / 2 - this.player.rect.h);
+            ctx.translate(cam.x, cam.y);
+
+            this.background.draw(ctx);
+            super.draw(ctx);
+
+            ctx.restore();
+        }
         public getSize(): Types.Rect {
             return this.board;
         }
@@ -91,7 +116,7 @@ module Game {
             for(let i = 0; i < arr.length; i += 5) {
                 let p = this.objects[ arr[i] ];
                 p.rect.xy = [ arr[ i + 1 ]
-                            , arr[ i + 2 ] 
+                            , arr[ i + 2 ]
                             ];
                 p.v.xy = [ arr[ i + 3 ]
                          , arr[ i + 4 ]
@@ -106,6 +131,12 @@ module Game {
         private onEnter(roomInfo: Data.RoomEntered) {
             this.board.copy(roomInfo.board);
             this.gateHeight = roomInfo.gateHeight;
+            this.background = new Scene.RenderTarget(
+                                        new Types.Rect( this.rect.x
+                                                      , this.rect.y
+                                                      , this.board.w + this.board.x
+                                                      , this.board.h + this.board.y))
+                                .prender(this.drawBoard.bind(this))
         }
 
         /**
@@ -124,8 +155,8 @@ module Game {
             this.objects = [];
             _(info.players).each((player: Data.PlayerInfo) => {
                 let p = this.createPlayer(player);
-                if(p.isPlayer())
-                	this.player = p;
+                if(p.info.isPlayer())
+                    this.player = p;
             });
 
             /** Wysyłanie wiadomości o przebudowie */
@@ -139,17 +170,29 @@ module Game {
                 }, true);
         }
         public getPlayer(): Player {
-			return this.player;
+            return this.player;
         }
 
         /**
          * Tworzenie gracza
          * @param  {Data.PlayerInfo} info Informacje z serwera
          */
-        private createPlayer( info: Data.PlayerInfo
-                            , type: Data.PlayerType = Data.PlayerType[info.nick === this.playerNick ? 'CURRENT_PLAYER' : 'PLAYER']): Player {
+        private createPlayer(info: Data.PlayerInfo): Player {
             return this.add(
-                new Player(type, new Data.PlayerInfo().copy(info)));
+                new Player( new Data.PlayerInfo().copy(info)
+                          , info.nick === this.playerNick ? Data.PlayerFlags.PLAYER : 0));
+        }
+
+        /**
+         * Ustawianie nowych flag na graczach
+         * @param {Data.NewFlags} flags Flagi
+         */
+        private newFlags(data: Data.NewFlags) {
+            _(this.objects)
+                .find(obj => {
+                    return obj.info.nick === data.nick;
+                })
+                .fetchFlag(data.flags);
         }
     };
 }

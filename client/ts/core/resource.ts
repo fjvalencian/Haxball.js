@@ -1,3 +1,5 @@
+/// <reference path="../types.ts" />
+
 module Core.Resource {
     export interface Data {
         name: string;
@@ -11,15 +13,16 @@ module Core.Resource {
     
     /** Callback wywoływany po załadowaniu zasobu */
     export interface Callback<T> { (data: T, res: Data): void; };
+    
     /** Paczka zasobów */
     export interface GamePack { [index: string]: Data };
 
     /** Loader plików graficznych */
     loaders['png|jpg'] = 
             (res: Data, callback: Callback<Types.Image>):void => {
-        var img = new Image;
+        let img = new Image;
         img.src = res.path;
-        img.onload = _.bind(callback, null, img, res);
+        img.onload = callback.bind(null, img, res);
         img.onerror = () => {
             throw new Error('Nie mogłem załadować obrazu!');
         };
@@ -33,16 +36,16 @@ module Core.Resource {
     export function load<T>(
               resources: Data[]
             , callback: (pack: GamePack) => void
-            , percentage: (percent: number) => void =null) {
+            , percentage: (percent: number) => void = null) {
         /** Callback jeśli wczytane wszystkie dane */
-        var pack: GamePack = {};
-        var loaded:Callback<any> = (data: any, res: Data) => {
+        let pack: GamePack = {};
+        let loaded:Callback<any> = (data: any, res: Data) => {
             if (_.has(pack, res.name))
                 throw new Error('Resource already exists!');
             pack[res.name] = _.extend({ res: data }, res);
 
             /** Pasek wczytywania */
-            var proc = _.size(pack) / resources.length;
+            let proc = _.size(pack) / resources.length;
             if(percentage)
                 percentage(proc);
             if(proc == 1.0)
@@ -50,7 +53,7 @@ module Core.Resource {
         };
 
         /** Pobieranie loadera dla typu pliku */
-        var getLoader = (path: string):Loader<any> => {
+        let getLoader = (path: string):Loader<any> => {
             return _.find(loaders, (lader: Loader<any>, regex: string): any => {
                 return new RegExp('.(' + regex + ')$').test(path);
             });

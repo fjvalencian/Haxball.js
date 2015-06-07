@@ -138,7 +138,7 @@ module Core.Scene {
                 object.onEvent(source, event);
             });
         }
-        public broadcast = _.bind(this.onEvent, this);
+        public broadcast = this.onEvent.bind(this);
 
         /**
          * Renderowanie elementów
@@ -147,7 +147,7 @@ module Core.Scene {
         public draw(ctx: Types.Context) {
             ctx.save();
             ctx.translate(this.rect.x, this.rect.y);
-            
+
             /** for dla zwiększenia wydajności */
             for(let i=0; i<this.objects.length; ++i) {
                 (<ObjectTemplate> this.objects[i]).draw(ctx);
@@ -212,6 +212,31 @@ module Core.Scene {
                 this.cutSize();
             } else
                 Graph.Template.Image(ctx, this.rect, { img: <Types.Image> this.img });
+        }
+    };
+
+    /** Canvas */
+    export class RenderTarget extends KernelObject {
+        constructor(rect: Types.Rect, canvas?: Types.Canvas) {
+            super(rect);
+            if(!canvas) {
+                canvas = <Types.Canvas> document.createElement('canvas');
+                canvas.width = rect.w;
+                canvas.height = rect.h;
+            }
+            this.config = new CanvasConfig(canvas);
+        }
+
+        /** Prerenderowanie */
+        private config: CanvasConfig;
+        public prender(callback: { (ctx: Types.Context): void }): RenderTarget {
+            callback(this.config.ctx);
+            return this;
+        }
+
+        /** Renderowanie */
+        public draw(ctx: Types.Context) {
+            ctx.drawImage(this.config.canvas, this.rect.x, this.rect.y);
         }
     };
 };

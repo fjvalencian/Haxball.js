@@ -9,52 +9,12 @@
 /// <reference path="gui.ts" />
 
 module Core {
-    /** Stan aplikacji np. menu, plansza gry */
-    export class State 
-            extends Scene.ContainerObject<Scene.KernelObject> {
-        /** Fabryka elementów */
-        public create = {
-              sprite: (img: string, rect: Types.Rect): Scene.Sprite => {
-                return this.add(new Scene.Sprite(this.kernel.res(img) || img, rect));
-            }
-            , text: ( text: string
-                    , pos: Types.Vec2
-                    , font?: Graph.Font
-                    ): Scene.Text => {
-                return this.add(new Scene.Text(text, pos, font));
-            }
-        };
-
-        /** Metody dziedziczące, brak abstract/virtual :( */
-        protected load() {}
-        protected listeners() {}
-
-        public start() {}
-        public stop() {}
-
-        /** Inicjacja stanu */
-        public init() { 
-            this.load();
-            this.listeners();
-        }
-
-        /**
-         * Rendering
-         * @param {Types.Context} ctx  Kontekst canvasu
-         */
-        public update() { }
-        public draw(ctx: Types.Context) {
-            super.draw(ctx);
-            this.update();
-        }
-    };
-
     /**
      * Konfiguracja canvasu, podstawowe
      * info o canvasie
      */
-    class CanvasConfig {
-        size: Types.Rect = new Types.Rect(0, 0);
+    export class CanvasConfig {
+        public size: Types.Rect = new Types.Rect;
         constructor( public canvas: Types.Canvas
                    , public ctx: Types.Context = <CanvasRenderingContext2D>canvas.getContext('2d')) {
             this.size.w = canvas.width;
@@ -72,8 +32,8 @@ module Core {
      * i zasobami załadowanymi przez loadery
      */
     export class Kernel {
-        private config: CanvasConfig;
-        public get canvas(): Types.Canvas { return this.config.canvas; }
+        private config: CanvasConfig = null;
+        public get size(): Types.Rect   { return this.config.size; }
         public get ctx(): Types.Context { return this.config.ctx; }
 
         constructor(canvasId: string) {
@@ -207,7 +167,10 @@ module Core {
 
                 /** Wysyłanie eventów przycisków */
                 if(!_(this.pressedKeys).isEmpty())
-                    this.broadcast({ type: Input.Type.KEY_DOWN, data: this.pressedKeys }, true);
+                    this.broadcast({ 
+                          type: Input.Type.KEY_DOWN
+                        , data: this.pressedKeys 
+                    }, true);
 
                 /** W celu optymalizacji wywoływanie bezpośrednio */
                 ctx.fillStyle = 'black';
@@ -221,7 +184,7 @@ module Core {
                 t = Date.now();
                 window.requestAnimationFrame(loop);
             };
-            window.requestAnimationFrame(loop);
+            loop();
         }
 
         /** Start silnika i ładowanie zasobów */
@@ -235,7 +198,7 @@ module Core {
             let postLoad = (pack: Resource.GamePack) => {
                 this.mode = KernelMode.RUNNING;
                 this.pack = pack;
-                setTimeout(_.bind(this.setState, this, 'main'), 2);
+                setTimeout(this.setState.bind(this, 'main'), 2);
             };
 
             /** Wczytywanie zasobu */

@@ -18,8 +18,8 @@ module Game.State {
         public start() {
             let logo: Types.Rect = 
                 new Types.Rect(
-                      this.kernel.canvas.width / 2 - 50
-                    , this.kernel.canvas.height / 2 - 50
+                      this.kernel.size.w / 2 - 50
+                    , this.kernel.size.h / 2 - 50
                     , 100
                     , 100);
             this.create.sprite('logo', logo);

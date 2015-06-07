@@ -11,8 +11,19 @@ module Core {
             , context: any
             , callbacks: { [index: string]: any }) {
         _.each(callbacks, (val: any, key: string) => {
-            socket.on(key, _.bind(val, context));
+            socket.on(key, val.bind(context));
         });
+    };
+
+
+    /**
+     * Sprawdzanie flag
+     * @param  {number}  number flagi
+     * @param  {number}  flag   flaga
+     * @return {boolean}        true jeśli flaga jest we flagach
+     */
+    export function hasFlag(number: number, flag: number): boolean {
+        return (number & flag) === flag;
     };
 
     export module Server.Data {
@@ -21,19 +32,23 @@ module Core {
             , SPECTATORS
             , RIGHT  
         };
-        export enum PlayerType {
-              CURRENT_PLAYER
-            , PLAYER 
+
+        /** Ustawianie nowych flag */
+        export interface NewFlags {
+            nick: string;
+            flags: number;
         };
-        export enum PlayerFlags {
-              ROOM_OP = 1 << 1
-            , BALL    = 1 << 2
-        };
-        
+
         /** Dane serwera */
         export type RoomUpdate = ArrayBuffer;
 
         /** Informacja o graczu */
+        export enum PlayerFlags {
+              ROOM_OP  = 1 << 1
+            , BALL     = 1 << 2
+            , PLAYER   = 1 << 3
+            , SHOOTING = 1 << 4
+        };
         export class PlayerInfo extends Types.Copyable {
             public number: number = 0;
             public flags: number = 0;
@@ -46,7 +61,8 @@ module Core {
             public hasFlag(flag: number): boolean {
                 return (this.flags & flag) === flag;
             }
-            public isBall = _.bind(this.hasFlag, this, PlayerFlags.BALL);
+            public isBall = this.hasFlag.bind(this, PlayerFlags.BALL);
+            public isPlayer = this.hasFlag.bind(this, PlayerFlags.PLAYER);
         };
 
         /** Wiadomość wysyłana do gracza podłączającego się do pokoju */

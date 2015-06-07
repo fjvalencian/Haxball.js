@@ -1,5 +1,7 @@
+/// <reference path="../../core/state.ts" />
 /// <reference path="../game.ts" />
 /// <reference path="../board.ts" />
+
 module Game.State {
     /** Pole chatu */
     class Chatbox extends Scene.ContainerObject<Scene.Text> {
@@ -10,7 +12,7 @@ module Game.State {
         public log(from: string, log: string, color: string = 'white') {
             super.add(
                 new Scene.Text(
-                        from + '> ' + log
+                          from + '> ' + log
                         , new Types.Vec2(0, this.objects.length * 12)
                         , { size: 10, color: color, name: 'ArcadeClassic' }));
         }
@@ -35,13 +37,14 @@ module Game.State {
         private score: Scene.Text = new Scene.Text('1:1', new Types.Vec2(20, 30));
         private chatbox: Chatbox = new Chatbox(new Types.Rect(20, 340, 100, 200));
 
+        /** Startowanie planszy */
         public start() {
             socket
                 .emit('set nick', 'user' + Math.ceil(Math.random() * 10))
                 .on('auth success', (nick: string) => {
                     socket.emit('set room', 'test');
                     this.add([
-                          <any> new Board(this, nick)
+                          <any> new Board(new Types.Rect(0, 40, this.kernel.size.w, 270), this, nick)
                         , this.score
                         , this.chatbox
                         , new Scene.Text(
