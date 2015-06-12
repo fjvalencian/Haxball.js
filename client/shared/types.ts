@@ -167,6 +167,30 @@ module Types {
         }
 
         /**
+         * Zwraca true jeśli prostokąt znajduje się w rect
+         * @param  {Rect}    Prostokąt w którym ma być this
+         */
+        public contains(rect: Rect): boolean {
+            return (
+                   rect.x >= this.x
+                && rect.x + rect.w <= this.x + this.w
+                && rect.y >= this.y
+                && rect.y + rect.h <= this.y + this.h
+            );
+        }
+
+        /**
+         * Zwraca true jeśli prostokąt jest większy w rect
+         * @param  {Rect}    Prostokąt
+         */
+        public isBigger(rect: Rect) {
+            return (
+                   this.w > rect.w
+                && this.h > rect.h
+            );
+        }
+
+        /**
          * Zwracanie prostokąta z paddingiem
          * @param  {number}  Padding
          * @return {Rect}    Prostokąt

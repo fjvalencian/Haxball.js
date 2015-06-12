@@ -45,9 +45,8 @@ module.exports = function(grunt) {
             base: {
                   src: [ 'ts/**/*.ts', 'assets/lib/**/*.ts' ]
                 , dest: 'build/js/game.js'
-                , options: { 
-                      module: 'amd' 
-                    , target: 'es5'
+                , options: {
+                    target: 'es5'
                 }
             }
         }

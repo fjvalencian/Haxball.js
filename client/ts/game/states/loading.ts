@@ -1,4 +1,5 @@
 /// <reference path="../game.ts" />
+
 module Game.State {
 	export class Loading extends Core.State {
         protected load() {

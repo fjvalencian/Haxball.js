@@ -3,7 +3,6 @@
 /// <reference path="../multiplayer.ts" />
 
 module Game {
-    console.log(Core);
 	export type Socket = SocketIOClient.Socket;
 	export import Scene = Core.Scene;
     export import GUI = Core.Scene.GUI;

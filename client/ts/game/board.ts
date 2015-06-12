@@ -55,23 +55,23 @@ module Game {
             for(let i = 0; i < 14; i++)
                 Template.Rect( ctx
                          , new Types.Rect(this.board.x + i * w, this.board.y, w + 1, this.board.h)
-                         , { color: i % 2 ? '#568926': '#4a7621'  });
+                         , { color: i % 2 ? '#000000': '#111111'  });
 
             /** Obramowanie boiska */
             const size = new Types.Vec2(6, this.gateHeight);
             Template.Rect( ctx
                          , this.board
-                         , { stroke: { width: 4, color: '#80a65c' } });
+                         , { stroke: { width: 4, color: '#333333' } });
             Template.Circle( ctx
                            , this.board.center()
                            , { r: 70
-                             , stroke: { width: 4, color: '#80a65c' } })
+                             , stroke: { width: 4, color: '#333333' } })
             Template.Line( ctx
                          , new Types.Rect( this.board.x + this.board.w / 2 - 1
                                          , this.board.y + 2
                                          , 0
                                          , this.board.h - 4)
-                         , { width: 4, color: '#80a65c' });
+                         , { width: 4, color: '#333333' });
 
             /** Bramki */
             Template.Rect( ctx
@@ -85,22 +85,22 @@ module Game {
         public draw(ctx: Types.Context) {
             if (!this.player || !this.background)
                 return;
-            
+
             ctx.save();
             ctx.beginPath();
 
             ctx.translate(this.rect.x, this.rect.y);
             ctx.rect(0, 0, this.rect.w, this.rect.h);
             ctx.clip();
-            
-            if(this.rect.h < this.board.h) {
+            if(!this.rect.isBigger(this.board)) {
                 let cam = new Types.Vec2( 
-                      -this.player.rect.x * 0.8 - this.rect.x + this.rect.w / 2
-                    , -this.player.rect.y * 0.8 - this.rect.y + this.rect.h / 2 - this.player.rect.h);
+                      -this.player.rect.x * 0.8 + this.rect.w / 2
+                    , -this.player.rect.y * 0.8 + this.rect.h / 2 - this.player.rect.h);
                 ctx.translate(cam.x, cam.y);
             }
-
             this.background.draw(ctx);
+
+            ctx.translate(-this.rect.x, -this.rect.y);
             super.draw(ctx);
 
             ctx.restore();
@@ -134,8 +134,8 @@ module Game {
             this.board.copy(roomInfo.board);
             this.gateHeight = roomInfo.gateHeight;
             this.background = new Scene.RenderTarget(
-                                        new Types.Rect( this.rect.x
-                                                      , this.rect.y
+                                        new Types.Rect( 0
+                                                      , 0
                                                       , this.board.w + this.board.x
                                                       , this.board.h + this.board.y))
                                 .prender(this.drawBoard.bind(this))

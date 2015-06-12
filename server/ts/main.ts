@@ -136,11 +136,10 @@ module Core.Server {
                     else
                         move = cache[<any> dir] 
                                 ||  (
-                                    cache[<any> dir] 
-                                        = Player
-                                            .vectors[<Types.Direction> dir]
-                                            .clone()
-                                            .mulBy(this.config.maxSpeed.move)
+                                    cache[<any> dir] = Player
+                                        .vectors[<Types.Direction> dir]
+                                        .clone()
+                                        .mulBy(this.config.maxSpeed.move)
                                     );
                     this.v.add(move);
                 }
@@ -182,9 +181,9 @@ module Core.Server {
 
         /** Rozłączanie */
         private disconnect() {
+            Player.players = _(Player.players).without(this);
             if (this.room)
                 this.room.unjoin(this);
-            Player.players = _(Player.players).without(this);
         }
     };
 
@@ -225,7 +224,7 @@ module Core.Server {
                 , ball: 3.0
             }
             , shootPower: 1.2
-            , board: new Rect(0, 0, 580, 270)
+            , board: new Rect(0, 0, 800, 370)
             , templates: {
                   player: {
                       rect: new Rect(0, 0, 28, 28)
@@ -353,7 +352,7 @@ module Core.Server {
             player
                 .setTeam(this.players.length % 2 ? Data.Team.RIGHT : Data.Team.LEFT)
                 .send('room entered', <Data.RoomEntered> {
-                    board: this.board
+                      board: this.board
                     , gateHeight: this.gateHeight
                     , msg: 'Witamy w naszych skromnych prograch!'
                 })
