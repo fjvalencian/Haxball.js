@@ -35,7 +35,7 @@ module Game.State {
     /** Ekran gry */
 	export class Soccer extends Core.State {
         private score: Scene.Text = new Scene.Text('1:1', new Types.Vec2(20, 30));
-        private chatbox: Chatbox = new Chatbox(new Types.Rect(20, 340, 100, 200));
+        private chatbox: Chatbox = new Chatbox(new Types.Rect(20, 400, 100, 100));
 
         /** Startowanie planszy */
         public start() {
@@ -44,9 +44,10 @@ module Game.State {
                 .on('auth success', (nick: string) => {
                     socket.emit('set room', 'test');
                     this.add([
-                          <any> new Board(new Types.Rect(0, 40, this.kernel.size.w, 270), this, nick)
+                          <any> new Board(new Types.Rect(10, 40, 600, 370), this, nick)
                         , this.score
                         , this.chatbox
+                        , new GUI.Button(new Types.Rect(80, 0, 50, 30), 'DUPA')
                         , new Scene.Text(
                               '[spacja] by odbic'
                             , new Types.Vec2(215, 30)

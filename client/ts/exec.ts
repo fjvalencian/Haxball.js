@@ -2,7 +2,7 @@
 /// <reference path="game/states/soccer.ts" />
 /// <reference path="game/states/loading.ts" />
 (() => {
-    new Core.Kernel('game_canvas')
+    new Core.Kernel('game-canvas')
         .regState('loading', new Game.State.Loading)
         .regState('main', new Game.State.Soccer)
         .run();

@@ -11,21 +11,20 @@ html(lang="pl")
         script(src='../lib/socket.io-client/socket.io.js')
         // endbower
 
+        -boardSize = [ 610, 450 ]
         style.
             @font-face {
                 font-family: 'ArcadeClassic';
                 src: url('../assets/fonts/font.ttf');
             }
-            canvas {
-                image-rendering: optimizeSpeed;             /* Older versions of FF          */
-                image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
-                image-rendering: -webkit-optimize-contrast; /* Safari                        */
-                image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
-                image-rendering: pixelated;                 /* Awesome future-browsers       */
-                -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+            canvas#game-canvas {
+                display: block;
+                width:   #{boardSize[0]} px; 
+                height:  #{boardSize[1]} px;
+                margin:  0 auto;
+                image-rendering: pixelated;              */
             }
-        div#game-board(style="width: 590px; margin: 0 auto;")
-            canvas(width="590px", height="450px", id="game_canvas")
+        canvas#game-canvas(width="#{boardSize[0]}px", height="#{boardSize[1]}px")
         script(src="../js/game.js" type="application/javascript")
 
 

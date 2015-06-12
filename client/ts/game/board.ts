@@ -85,7 +85,7 @@ module Game {
         public draw(ctx: Types.Context) {
             if (!this.player || !this.background)
                 return;
-
+            
             ctx.save();
             ctx.beginPath();
 
@@ -93,10 +93,12 @@ module Game {
             ctx.rect(0, 0, this.rect.w, this.rect.h);
             ctx.clip();
             
-            let cam = new Types.Vec2( 
-                  -this.player.rect.x * 0.8 - this.rect.x + this.rect.w / 2
-                , -this.player.rect.y * 0.8 - this.rect.y + this.rect.h / 2 - this.player.rect.h);
-            ctx.translate(cam.x, cam.y);
+            if(this.rect.h < this.board.h) {
+                let cam = new Types.Vec2( 
+                      -this.player.rect.x * 0.8 - this.rect.x + this.rect.w / 2
+                    , -this.player.rect.y * 0.8 - this.rect.y + this.rect.h / 2 - this.player.rect.h);
+                ctx.translate(cam.x, cam.y);
+            }
 
             this.background.draw(ctx);
             super.draw(ctx);

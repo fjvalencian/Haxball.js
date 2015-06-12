@@ -43,6 +43,9 @@ module Types {
             this.y = vals[1];
         }
         
+        /** Mnożenie przez liczbbe */
+        public mulBy(num: number): Vec2 { this.x *= num; this.y *= num; return this; }
+
         /** Kopiowanie */
         static clone(vec: Vec2)      { return new Vec2().copy(vec); }
         public clone(): Vec2         { return Vec2.clone(this);     }

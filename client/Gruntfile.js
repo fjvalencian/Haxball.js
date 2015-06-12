@@ -47,7 +47,7 @@ module.exports = function(grunt) {
                 , dest: 'build/js/game.js'
                 , options: { 
                       module: 'amd' 
-                    , target: 'es6'
+                    , target: 'es5'
                 }
             }
         }

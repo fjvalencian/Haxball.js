@@ -27,7 +27,28 @@ module Core {
     };
 
     export module Server.Data {
-        export enum Team {
+        export interface PlayerTemplate {
+            rect: Types.Rect;
+            mass: number;
+        };
+
+        /** Konfiguracja pokoju */
+        export interface RoomConfig {
+            delay: number; /** max 60 fps */
+            maxSpeed: {
+                  move: number
+                , player: number
+                , ball: number
+            };
+            shootPower: number;
+            board: Types.Rect;
+            templates: {
+                player: PlayerTemplate;
+                ball: PlayerTemplate;
+            }
+        };
+
+        export const enum Team {
               LEFT
             , SPECTATORS
             , RIGHT  
@@ -43,7 +64,7 @@ module Core {
         export type RoomUpdate = ArrayBuffer;
 
         /** Informacja o graczu */
-        export enum PlayerFlags {
+        export const enum PlayerFlags {
               ROOM_OP  = 1 << 1
             , BALL     = 1 << 2
             , PLAYER   = 1 << 3

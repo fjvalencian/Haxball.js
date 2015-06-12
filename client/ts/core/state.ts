@@ -1,4 +1,3 @@
-/// <reference path="../types.ts" />
 /// <reference path="scene.ts" />
 
 module Core {

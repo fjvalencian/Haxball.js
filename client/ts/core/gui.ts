@@ -8,6 +8,7 @@ module Core.Scene.GUI {
     const config = {
           RADIUS: 5
         , PROGRESS: { bar: 'white', border: 'white', padding: new Types.Rect(-3, -3, 6, 6) }
+        , BUTTON:   { fill: 'black' }
     };
 
     /** Pasek ładowania */
@@ -39,4 +40,19 @@ module Core.Scene.GUI {
             this.rect.sub(config.PROGRESS.padding);
         }
     };
+
+    /** Guzik */
+    export class Button extends ShapeWrapper {
+        constructor( shape: Types.Rect
+                   , private text: string) {
+            super( Template.Rect
+                 , { color: config.BUTTON.fill }
+                 , shape);
+        }
+
+        /** Rendering */
+        public draw(ctx: Types.Context) {
+            super.draw(ctx);
+        }
+    }
 };

@@ -1,8 +1,9 @@
 /// <reference path="../../assets/defs/socket.io-client/socket.io-client.d.ts" />
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/engine.ts" />
 /// <reference path="../multiplayer.ts" />
 
 module Game {
+    console.log(Core);
 	export type Socket = SocketIOClient.Socket;
 	export import Scene = Core.Scene;
     export import GUI = Core.Scene.GUI;

@@ -4,9 +4,7 @@
 /// <reference path="../types.ts" />
 /// <reference path="input.ts" />
 /// <reference path="resource.ts" />
-/// <reference path="graph.ts" />
-/// <reference path="scene.ts" />
-/// <reference path="gui.ts" />
+/// <reference path="state.ts" />
 
 module Core {
     /**
@@ -14,11 +12,17 @@ module Core {
      * info o canvasie
      */
     export class CanvasConfig {
-        public size: Types.Rect = new Types.Rect;
+        public size: Types.Rect = null;
         constructor( public canvas: Types.Canvas
                    , public ctx: Types.Context = <CanvasRenderingContext2D>canvas.getContext('2d')) {
-            this.size.w = canvas.width;
-            this.size.h = canvas.height;
+            
+            let br = <any> canvas.getBoundingClientRect();
+            this.size = new Types.Rect(
+                  br.x
+                , br.y
+                , br.width
+                , br.height
+            );
         }
     };
 
@@ -83,7 +87,19 @@ module Core {
         /** Rejestrowanie nasłuchiwania eventów */
         private pressedKeys: { [index: number]: boolean } = {};
         private regListeners() {
+            let mousePos = new Types.Vec2;
             $(window)
+                .mousedown(e => {
+                    mousePos.xy = [ 
+                          e.clientX - this.size.x
+                        , e.clientY - this.size.y
+                    ];
+                    if(mousePos.x > 0 && mousePos.y > 0)
+                        this.broadcast({ 
+                              type: Input.Type.MOUSE_CLICK
+                            , data: mousePos
+                        }, true);
+                })
                 .keydown(e => { 
                     this.pressedKeys[e.keyCode] = true; 
                 })

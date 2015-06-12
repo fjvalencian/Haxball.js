@@ -165,7 +165,9 @@ module Core.Scene {
                    , rect) {
             super(rect);
         }
-        public draw(ctx: Types.Context) { this.caller(ctx, this.rect, this.params); }
+        public draw(ctx: Types.Context) { 
+            this.caller(ctx, this.rect, this.params); 
+        }
     };
 
     /** Tekst */

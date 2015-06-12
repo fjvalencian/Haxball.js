@@ -27,29 +27,6 @@ module Core.Server {
         socket.emit('server error', { code: err });
     };
 
-    /** Konfiguracja serwera */
-    export interface PlayerTemplate {
-        rect: Rect;
-        mass: number;
-    };
-    export const Config = {
-          delay: 1000 / 60
-        , moveSpeed: 0.06
-        , maxSpeed: 3.0
-        , shootPower: 1.5
-        , board: new Rect(0, 0, 546, 470)
-        , types: {
-              player: <PlayerTemplate> {
-                  rect: new Rect(0, 0, 28, 28)
-                , mass: 1.0
-            }
-            , ball: <PlayerTemplate> {
-                  rect: new Rect(0, 0, 20, 20)
-                , mass: 10.0
-            }
-        }
-    };
-
     /** Gracz */
     export class Player {
         /** Gracze w całym serwerze */
@@ -57,23 +34,20 @@ module Core.Server {
 
         /** Identyfikator gracza w roomie */
         constructor(
-              private socket: Socket
-            /** Do PlayerInfo*/
-            , flags: number = 0
-            , team: Data.Team = Data.Team.SPECTATORS
+                  private socket: Socket
+                /** Do PlayerInfo*/
+                , flags: number = 0
+                , team: Data.Team = Data.Team.SPECTATORS
 
-            /** Zależne od piłki */
-            , public rect: Rect = new Rect
-            , public mass: number = 0
-            , public v: Vec2 = new Vec2) {
-
-            /** Flagi gracza */
-            this.setTemplate(
-                Config.types[
-                    Core.hasFlag(flags, Data.PlayerFlags.BALL) 
-                        ? 'ball' 
-                        : 'player'
-                ]);
+                /** Zależne od piłki */
+                , public rect: Rect = new Rect
+                , public mass: number = 0
+                , public v: Vec2 = new Vec2) {
+            _(this.info).extend({
+                  team: team
+                , rect: rect
+                , flags: flags
+            });
             if (this.socket)
                 bind(this.socket, this, {
                       'disconnect': this.disconnect
@@ -83,11 +57,6 @@ module Core.Server {
                     /** Strzelanie */
                     , 'set flags': this.setFlags
                 });
-            _(this.info).extend({
-                  team: team
-                , rect: rect
-                , flags: flags
-            });
 
             /** Rejestrowania gracza */
             Player.players.push(this);
@@ -116,15 +85,6 @@ module Core.Server {
         public send(type: string, data: any): Player {
             if (this.socket)
                 this.socket.emit(type, data);
-            return this;
-        }
-
-        /** Ustawianie stanu gracza */
-        private type: PlayerTemplate = null;
-        private setTemplate(type: PlayerTemplate): Player {
-            this.type = type;
-            this.rect.copy(type.rect);
-            this.mass = type.mass;
             return this;
         }
 
@@ -161,25 +121,62 @@ module Core.Server {
 
         /** Poruszanie się */
         static vectors: Vec2[] = [
-              new Vec2(0.0, -Config.moveSpeed)
-            , new Vec2(0.0, Config.moveSpeed)
-            , new Vec2(-Config.moveSpeed, 0.0)
-            , new Vec2(Config.moveSpeed, 0.0)
+              new Vec2(0.0, -1.0)
+            , new Vec2(0.0, 1.0)
+            , new Vec2(-1.0, 0.0)
+            , new Vec2(1.0, 0.0)
         ];
-        public move(dir: Types.Direction|Types.Vec2) {
-            if (this.v.length() < Config.maxSpeed && this.isPlaying())
-                this.v.add(dir instanceof Types.Vec2
-                    ? dir
-                    : Player.vectors[<Types.Direction> dir]);
-        }
+        public move = (() => {
+            let cache = {};
+            return (dir: Types.Direction|Types.Vec2) => {
+                if (this.v.length() < this.config.maxSpeed.player && this.isPlaying()) {
+                    let move = null;
+                    if (dir instanceof Types.Vec2)
+                        move = dir;
+                    else
+                        move = cache[<any> dir] 
+                                ||  (
+                                    cache[<any> dir] 
+                                        = Player
+                                            .vectors[<Types.Direction> dir]
+                                            .clone()
+                                            .mulBy(this.config.maxSpeed.move)
+                                    );
+                    this.v.add(move);
+                }
+            }
+        })();
 
         /** Ustawianie pokoju */
         private room: Room = null;
-        public setRoom(room: Room|string): Player {
+        private config: Data.RoomConfig = null;
+        public setRoom(room: Room|string, joinSocket: boolean = true): Player {
+            /** Wchodzenie do pokoju */
             this.room = _.isString(room)
                 ? Room.rooms[<string> room]
                 : <Room> room;
-            this.room.join(this);
+
+            /** Kopiowanie konfiguracji */
+            this.config = this.room.config;
+            this.setTemplate(
+                this.config.templates[
+                    Core.hasFlag(this.info.flags, Data.PlayerFlags.BALL) 
+                        ? 'ball' 
+                        : 'player'
+                ]);
+
+            /** Po konfiguracji wchodzenie do pokoju */
+            if(joinSocket)
+                this.room.join(this);
+            return this;
+        }
+
+        /** Ustawianie stanu gracza */
+        private type: Data.PlayerTemplate = null;
+        private setTemplate(type: Data.PlayerTemplate): Player {
+            this.type = type;
+            this.rect.copy(type.rect);
+            this.mass = type.mass;
             return this;
         }
 
@@ -199,15 +196,16 @@ module Core.Server {
         constructor(private name: string) {
             Room.rooms[name] = this;
 
-            this.players.push(new Player(null, Data.PlayerFlags.BALL));
+            this.players.push(
+                new Player(null, Data.PlayerFlags.BALL).setRoom(this, false)
+            );
             setInterval(
                   this.update.bind(this)
-                , Config.delay);
+                , 1000 / this.config.delay);
         }
         public getName(): string { return this.name; }
 
         /** Układ graczy po dołączeniu */
-        private board: Rect = Config.board;
         private gateHeight: number = 100;
         private playerLocations: Vec2[] = [
               new Vec2(50, 50)
@@ -219,6 +217,29 @@ module Core.Server {
             , new Vec2(100, 150)
             , new Vec2(100, 200)
         ];
+        public config: Data.RoomConfig = {
+              delay: 60
+            , maxSpeed: {
+                  move: 0.06
+                , player: 3.0
+                , ball: 3.0
+            }
+            , shootPower: 1.2
+            , board: new Rect(0, 0, 580, 270)
+            , templates: {
+                  player: {
+                      rect: new Rect(0, 0, 28, 28)
+                    , mass: 1.0
+                }
+                , ball: {
+                      rect: new Rect(0, 0, 20, 20)
+                    , mass: 10.0
+                }
+            }
+        };
+        public get board(): Rect {
+            return this.config.board; 
+        }
 
         /** 
          * Testowanie kolizji
@@ -259,10 +280,12 @@ module Core.Server {
                             p1.v.y -= p * p1.mass * ny;
                             p1.rect.add(p1.v);
 
-                            if(p1.info.hasFlag(Data.PlayerFlags.SHOOTING)) {
+                            if(p1.info.hasFlag(Data.PlayerFlags.SHOOTING) 
+                                    && p2.info.isBall()
+                                    && p2.v.length() < this.config.maxSpeed.ball) {
                                 p = 1.0;
-                                nx *= Config.shootPower;
-                                ny *= Config.shootPower;
+                                nx *= this.config.shootPower;
+                                ny *= this.config.shootPower;
                             }
 
                             p2.v.x += p * p2.mass * nx;
@@ -392,11 +415,10 @@ module Core.Server {
         }
 
         /**
-         * Wychodzenie z pokoju
+         * Wychodzenie z pokoju i uaktualnianie listy graczy
          * @param {Player} player Gracz
          */
         public unjoin(player: Player) {
-            /** Uaktualnianie listy graczy */
             this.players = _(this.players).without(player);
             this.rebuildPlayerList();
         }
