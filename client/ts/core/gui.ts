@@ -1,5 +1,6 @@
-/// <reference path="scene.ts" />
+/// <reference path="shape.ts" />
 /// <reference path="graph.ts" />
+/// <reference path="template.ts" />
 
 module Core.Scene.GUI {
     import Template = Graph.Template;
@@ -54,5 +55,5 @@ module Core.Scene.GUI {
         public draw(ctx: Types.Context) {
             super.draw(ctx);
         }
-    }
+    };
 };

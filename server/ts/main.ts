@@ -223,7 +223,7 @@ module Core.Server {
                 , player: 3.0
                 , ball: 3.0
             }
-            , shootPower: 1.2
+            , shootPower: 1.05
             , board: new Rect(0, 0, 800, 370)
             , templates: {
                   player: {

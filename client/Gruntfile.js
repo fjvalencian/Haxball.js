@@ -43,7 +43,7 @@ module.exports = function(grunt) {
         }
         , typescript: {
             base: {
-                  src: [ 'ts/**/*.ts', 'assets/lib/**/*.ts' ]
+                  src: [ 'ts/**/*.ts' ]
                 , dest: 'build/js/game.js'
                 , options: {
                     target: 'es5'

@@ -30,6 +30,6 @@ module Core.Input {
 
     /** Interfejs nasłuchiwujący eventu */
     export interface Listener { 
-        onEvent: (source: any, event: Event) => void; 
+        onEvent(source: any, event: Event): void; 
     };
 };

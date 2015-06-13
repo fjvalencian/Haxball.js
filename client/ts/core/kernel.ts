@@ -4,7 +4,6 @@
 /// <reference path="../types.ts" />
 /// <reference path="input.ts" />
 /// <reference path="resource.ts" />
-/// <reference path="state.ts" />
 
 module Core {
     /**

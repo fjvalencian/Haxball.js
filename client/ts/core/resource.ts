@@ -12,10 +12,14 @@ module Core.Resource {
     var loaders: { [ index: string ]: Loader<any> } = {};
     
     /** Callback wywoływany po załadowaniu zasobu */
-    export interface Callback<T> { (data: T, res: Data): void; };
+    export interface Callback<T> { 
+        (data: T, res: Data): void; 
+    };
     
     /** Paczka zasobów */
-    export interface GamePack { [index: string]: Data };
+    export interface GamePack {
+        [index: string]: Data 
+    };
 
     /** Loader plików graficznych */
     loaders['png|jpg'] = 
