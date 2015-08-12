@@ -129,20 +129,21 @@ module Core.Server {
         public move = (() => {
             let cache = {};
             return (dir: Types.Direction|Types.Vec2) => {
-                if (this.v.length() < this.config.maxSpeed.player && this.isPlaying()) {
-                    let move = null;
-                    if (dir instanceof Types.Vec2)
-                        move = dir;
-                    else
-                        move = cache[<any> dir] 
-                                ||  (
-                                    cache[<any> dir] = Player
-                                        .vectors[<Types.Direction> dir]
-                                        .clone()
-                                        .mulBy(this.config.maxSpeed.move)
-                                    );
-                    this.v.add(move);
-                }
+                if (!this.config
+                        || this.v.length() > this.config.maxSpeed.player && this.isPlaying())
+                    return;
+                let move = null;
+                if (dir instanceof Types.Vec2)
+                    move = dir;
+                else
+                    move = cache[<any> dir]
+                            ||  (
+                                cache[<any> dir] = Player
+                                    .vectors[<Types.Direction> dir]
+                                    .clone()
+                                    .mulBy(this.config.maxSpeed.move)
+                                );
+                this.v.add(move);
             }
         })();
 
@@ -185,7 +186,7 @@ module Core.Server {
             if (this.room)
                 this.room.unjoin(this);
         }
-    };
+    }
 
     /** Pokój */
     export class Room {
@@ -194,10 +195,10 @@ module Core.Server {
 
         constructor(private name: string) {
             Room.rooms[name] = this;
-
             this.players.push(
                 new Player(null, Data.PlayerFlags.BALL).setRoom(this, false)
             );
+
             setInterval(
                   this.update.bind(this)
                 , 1000 / this.config.delay);
@@ -205,17 +206,6 @@ module Core.Server {
         public getName(): string { return this.name; }
 
         /** Układ graczy po dołączeniu */
-        private gateHeight: number = 100;
-        private playerLocations: Vec2[] = [
-              new Vec2(50, 50)
-            , new Vec2(50, 100)
-            , new Vec2(50, 150)
-            , new Vec2(50, 200)
-            , new Vec2(50, 250)
-            , new Vec2(100, 100)
-            , new Vec2(100, 150)
-            , new Vec2(100, 200)
-        ];
         public config: Data.RoomConfig = {
               delay: 60
             , maxSpeed: {
@@ -223,8 +213,12 @@ module Core.Server {
                 , player: 3.0
                 , ball: 3.0
             }
+            , board: new Rect(0, 0, 500, 170)
+            , gates: [
+                  new Rect(-50, 85 - 30, 50, 60)
+                , new Rect(500, 85 - 30, 50, 60)
+            ]
             , shootPower: 1.05
-            , board: new Rect(0, 0, 800, 370)
             , templates: {
                   player: {
                       rect: new Rect(0, 0, 28, 28)
@@ -245,25 +239,19 @@ module Core.Server {
          * http://ericleong.me/research/circle-circle/
          */
         private updatePhysics() {
-            let center: Vec2 = new Vec2(16, 16);
             for (let i = 0; i < this.players.length; ++i) {
-                let p1 = this.players[i];
+                let p1 = this.players[i],
+                    insideGate = false; // bramka może być poza planszą i wtedy nie obowiązują kolizje z bokami
 
-                /** Kolizje z górną częścią boiska */
-                if (this.board.y >= p1.rect.y
-                        || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
-                    p1.rect.y += p1.v.y *= -1;
-
-                /** Kolizje z bokami boiska, kulka przelatuje przez bok */
-                let c = this.board.y + this.board.h / 2;
-                if (!(p1.info.isBall() 
-                        && p1.rect.y >= c - this.gateHeight / 2 && p1.rect.y + p1.rect.h <= c + this.gateHeight / 2)
-                        && (this.board.x >= p1.rect.x || this.board.x + this.board.w <= p1.rect.x + p1.rect.w))
-                    p1.rect.x += p1.v.x *= -1;
-
-
-                /** Kolizje z innymi zawodnikami */
-                if(!p1.info.isBall())
+                if(p1.info.isBall()) {
+                    /** Kolizje z bramkami */
+                    for(let j = 0;j < this.config.gates.length; ++j)
+                        if(p1.rect.intersect(this.config.gates[j])) {
+                            insideGate = true;
+                            break;
+                        }
+                } else {
+                    /** Kolizje z innymi zawodnikami */
                     for (let j = 0; j < this.players.length; ++j) {
                         let p2 = this.players[j]
                           , c1 = p1.rect.center()
@@ -279,9 +267,9 @@ module Core.Server {
                             p1.v.y -= p * p1.mass * ny;
                             p1.rect.add(p1.v);
 
-                            if(p1.info.hasFlag(Data.PlayerFlags.SHOOTING) 
-                                    && p2.info.isBall()
-                                    && p2.v.length() < this.config.maxSpeed.ball) {
+                            if (p1.info.hasFlag(Data.PlayerFlags.SHOOTING)
+                                && p2.info.isBall()
+                                && p2.v.length() < this.config.maxSpeed.ball) {
                                 p = 1.0;
                                 nx *= this.config.shootPower;
                                 ny *= this.config.shootPower;
@@ -292,9 +280,25 @@ module Core.Server {
                             p2.rect.add(p2.v);
                         }
                     }
+                }
+
+                /** Tylko gdy nie jest w bramce */
+                if(!insideGate) {
+                    /** Kolizje z górną częścią boiska */
+                    if (this.board.y >= p1.rect.y
+                            || this.board.y + this.board.h <= p1.rect.y + p1.rect.h)
+                        p1.rect.y += p1.v.y *= -1;
+
+                    /** Kolizje z bokami boiska */
+                    if (this.board.x >= p1.rect.x
+                            || this.board.x + this.board.w <= p1.rect.x + p1.rect.w)
+                        p1.rect.x += p1.v.x *= -1;
+                } else
+                    p1.v.mulBy(.8);
+
                 /** Aktualizowanie prędkości */
                 p1.rect.add(
-                    p1.v.mul(new Vec2(0.98, 0.98)));
+                    p1.v.mul(new Vec2(.98, .98)));
             }
         }
 
@@ -316,12 +320,11 @@ module Core.Server {
                 let pack = new Float32Array(Room.PACK_SIZE * this.players.length);
                 _(this.players).each((player, index) => {
                     pack.set(<any> 
-                          [
-                              index
-                            , player.info.rect.x
-                            , player.info.rect.y
-                            , player.v.x
-                            , player.v.y
+                          [ index
+                          , player.info.rect.x
+                          , player.info.rect.y
+                          , player.v.x
+                          , player.v.y
                           ]
                         , index * Room.PACK_SIZE);
                 });
@@ -351,11 +354,10 @@ module Core.Server {
             /** Wysyłanie do gracza listy wszystkich graczy */
             player
                 .setTeam(this.players.length % 2 ? Data.Team.RIGHT : Data.Team.LEFT)
-                .send('room entered', <Data.RoomEntered> {
-                      board: this.board
-                    , gateHeight: this.gateHeight
-                    , msg: 'Witamy w naszych skromnych prograch!'
-                })
+                .send( 'room entered'
+                    ,  <Data.RoomEntered> _.extend(this.config, {
+                        msg: 'Witamy w naszych skromnych prograch!'
+                    }))
                 .getSocket().join(this.name);
 
             this.players.push(player);
@@ -368,30 +370,36 @@ module Core.Server {
          */
         private rebuildPlayerList(): Room {
             /** Przydzielanie numerków */
-            let list = _(this.players)
-                .chain()
-                .each((p: Player, index: number) => {
-                    p.info.number = index;
-                    p.v.xy = [ 0, 0 ];
+            let groups = {}
+              , list = _(this.players)
+                    .chain()
+                    .each((p: Player) => {
+                        if(!groups[p.info.team])
+                            groups[p.info.team] = 0;
+                        let index = ++groups[p.info.team];
 
-                    /** Piłka na środku */
-                    if(p.info.isBall()) {
-                        p.info.rect
-                            .sub(p.info.rect.center())
-                            .add(this.board.center());
+                        /** Aktualizacja numeru */
+                        p.info.number = index;
+                        p.v.xy = [ 0, 0 ];
 
-                        /** Gracze z przeciwnej drużyny */
-                    } else {
-                        p.info.rect.copy(
-                            this.playerLocations[index]
-                                .clone()
-                                .add(this.board));
-                        if (p.info.team === Data.Team.RIGHT)
-                            p.info.rect.x = this.board.x + this.board.w - p.info.rect.x;
-                    }
-                })
-                .pluck('info')
-                .value();
+                        /** Piłka na środku */
+                        if(p.info.isBall()) {
+                            p.info.rect
+                                .sub(p.info.rect.center())
+                                .add(this.board.center());
+                        } else {
+                            /** Pozycja gracza to procent */
+                            let pos = new Vec2(
+                                  .25 * (index / 4) * this.board.w
+                                , .25 * (index % 4) * this.board.h
+                            );
+                            p.info.rect.copy(pos.clone().add(this.board));
+                            if (p.info.team === Data.Team.RIGHT)
+                                p.info.rect.x = this.board.x + this.board.w - p.info.rect.x;
+                        }
+                    })
+                    .pluck('info')
+                    .value();
             /** Uaktualnianie listy graczy */
             this.broadcast('room rebuild', <Data.RoomJoin> {
                 players: list
@@ -426,8 +434,8 @@ module Core.Server {
         public isLocked(): boolean {
             return <any> (this.password && this.password.length);
         }
-    };
-};
+    }
+}
 import Server = Core.Server;
 (() => {
     let room: Server.Room = new Server.Room('test');

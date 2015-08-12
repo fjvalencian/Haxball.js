@@ -44,42 +44,36 @@ module Game {
         /** Rendering */
         private background: Scene.RenderTarget;
         private board: Types.Rect = new Types.Rect;
-        private gateHeight: number = 0;
+        private gates: Types.Rect[] = [];
 
         public drawBoard(ctx: Types.Context) {
             if(!this.board.w)
                 return;
-                
+
+            ctx.save();
+
             /** Pionowe pasy boiska */
             const w = this.board.w / 14;
-            for(let i = 0; i < 14; i++)
-                Template.Rect( ctx
-                         , new Types.Rect(this.board.x + i * w, this.board.y, w + 1, this.board.h)
-                         , { color: i % 2 ? '#000000': '#111111'  });
+            for(let i = 0; i < 14; i++) {
+                ctx.fillStyle = i % 2 ? '#000000': '#111111';
+                ctx.fillRect(i * w, 0, w + 1, this.board.h);
+            }
 
             /** Obramowanie boiska */
-            const size = new Types.Vec2(6, this.gateHeight);
-            Template.Rect( ctx
-                         , this.board
-                         , { stroke: { width: 4, color: '#333333' } });
-            Template.Circle( ctx
-                           , this.board.center()
-                           , { r: 70
-                             , stroke: { width: 4, color: '#333333' } })
-            Template.Line( ctx
-                         , new Types.Rect( this.board.x + this.board.w / 2 - 1
-                                         , this.board.y + 2
-                                         , 0
-                                         , this.board.h - 4)
-                         , { width: 4, color: '#333333' });
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#333333';
 
-            /** Bramki */
-            Template.Rect( ctx
-                         , new Types.Rect(this.board.x + this.board.w, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
-                         , { stroke: { width: 4, color: 'black' } });
-            Template.Rect( ctx
-                         , new Types.Rect(this.board.x - size.x, this.board.y + this.board.h / 2 - size.y / 2, size.x, size.y)
-                         , { stroke: { width: 4, color: 'black' } });
+            ctx.beginPath();
+            ctx.rect(0, 0, this.board.w, this.board.h);
+            ctx.stroke();
+
+            /** Linie boiska */
+            ctx.beginPath();
+            ctx.moveTo(this.board.w / 2, 2);
+            ctx.lineTo(this.board.w / 2, this.board.h - 2);
+            ctx.stroke();
+
+            ctx.restore();
             super.draw(ctx);
         }
         public draw(ctx: Types.Context) {
@@ -92,25 +86,27 @@ module Game {
             ctx.translate(this.rect.x, this.rect.y);
             ctx.rect(0, 0, this.rect.w, this.rect.h);
             ctx.clip();
-            if(!this.rect.isBigger(this.board)) {
-                let cam = new Types.Vec2( 
-                      -this.player.rect.x * 0.8 + this.rect.w / 2
-                    , -this.player.rect.y * 0.8 + this.rect.h / 2 - this.player.rect.h);
-                ctx.translate(cam.x, cam.y);
-            }
-            this.background.draw(ctx);
 
+            /** Jeśli plansza jest większa niż rozmiar widoku to centruje w kamerze */
+            let cam = new Types.Vec2(
+                  -this.player.rect.x * (this.board.w / this.rect.w) + this.rect.w / 2
+                , -this.player.rect.y * (this.board.h / this.rect.h) + this.rect.h / 2);
+            ctx.translate(cam.x, cam.y);
+
+            this.background.draw(ctx);
             ctx.translate(-this.rect.x, -this.rect.y);
             super.draw(ctx);
 
             ctx.restore();
         }
-        public getSize(): Types.Rect {
-            return this.board;
-        }
 
         /**
-         * Podczas aktualizacji
+         * Podczas aktualizacji pobierane są pozycji graczy
+         * elementy, które są na planszy to:
+         * - [] - gracze
+         * - obiekty nie aktualizowane
+         * GRACZE MUSZĄ BYĆ PRZED OBIEKTAMI, kiedyś się
+         * to naprawi. Kompresja nagłówków :)
          * @param {Data.RoomUpdate} data Plansza
          */
         private onUpdate(data: Data.RoomUpdate) {
@@ -131,14 +127,20 @@ module Game {
          * @param {Data.RoomJoin} roomInfo Informacje o pokoju
          */
         private onEnter(roomInfo: Data.RoomEntered) {
+            /** Kopiowanie wymiarów planszy */
             this.board.copy(roomInfo.board);
-            this.gateHeight = roomInfo.gateHeight;
+
+            /** Kopiowanie pozycji bramek i ich rozmiarów */
+            this.gates = _(roomInfo.gates).each(rect => {
+                return Types.Rect.clone(rect);
+            });
+
+            /** prerendering */
             this.background = new Scene.RenderTarget(
-                                        new Types.Rect( 0
-                                                      , 0
-                                                      , this.board.w + this.board.x
-                                                      , this.board.h + this.board.y))
-                                .prender(this.drawBoard.bind(this))
+                    new Types.Rect( 0, 0
+                                  , this.board.w + this.board.x
+                                  , this.board.h + this.board.y)
+            ).prender(this.drawBoard.bind(this))
         }
 
         /**
@@ -147,18 +149,21 @@ module Game {
          */
         private player: Player = null;
         private onRebuild(info: Data.RoomJoin) {
-            let added = info.players.length !== this.objects.length;
-
             /** Różnica nicków między planszami */
-            let localNicks = _(this.objects).map(obj => { return obj.info.nick; })
+            let localNicks = _(this.objects).map(obj => { return obj.info && obj.info.nick; })
               , newNicks   = _(info.players).pluck('nick');
 
             /** Tworzenie graczy od nowa */
-            this.objects = [];
+            this.clear();
             _(info.players).each((player: Data.PlayerInfo) => {
                 let p = this.createPlayer(player);
                 if(p.info.isPlayer())
                     this.player = p;
+            });
+
+            /** Tworzenie bramek od nowa będzie prostsze */
+            _(this.gates).each(gate => {
+                this.add(<any> new Scene.Sprite('gate', gate));
             });
 
             /** Wysyłanie wiadomości o przebudowie */
@@ -187,7 +192,7 @@ module Game {
 
         /**
          * Ustawianie nowych flag na graczach
-         * @param {Data.NewFlags} flags Flagi
+         * @param {Data.NewFlags} data Flagi
          */
         private newFlags(data: Data.NewFlags) {
             _(this.objects)
@@ -196,5 +201,5 @@ module Game {
                 })
                 .fetchFlag(data.flags);
         }
-    };
+    }
 }

@@ -3,7 +3,7 @@
 /// <reference path="template.ts" />
 
 module Core.Scene.GUI {
-    import Template = Graph.Template;
+    import Template = Core.Graph.Template;
     
     /** Konfiguracja wyglądu kontrolek */
     const config = {
@@ -40,7 +40,7 @@ module Core.Scene.GUI {
                 , { radius: config.RADIUS, stroke: { width: 2, color: config.PROGRESS.border } });
             this.rect.sub(config.PROGRESS.padding);
         }
-    };
+    }
 
     /** Guzik */
     export class Button extends ShapeWrapper {
@@ -55,5 +55,5 @@ module Core.Scene.GUI {
         public draw(ctx: Types.Context) {
             super.draw(ctx);
         }
-    };
-};
+    }
+}

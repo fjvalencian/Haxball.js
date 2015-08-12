@@ -5,10 +5,10 @@ module Core.Scene {
     /** Callback dla eventów */
     export interface Forward { 
         (event: Input.Event): void; 
-    };
+    }
     export interface ForwardMap { 
         [index: number]: Forward 
-    };
+    }
 
     /** Przekazywanie eventów z okna na callbacki  */
     export class EventFilter extends ObjectTemplate implements Input.Listener {
@@ -40,5 +40,5 @@ module Core.Scene {
             if(callback)
                 callback(event);
         }
-    };
-};
+    }
+}

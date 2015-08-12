@@ -1,8 +1,9 @@
 /// <reference path="graph.ts" />
 /// <reference path="object.ts" />
+/// <reference path="input.ts" />
 
 module Core.Scene {
-    import IType = Input.Type;
+    import IType = Core.Input.Type;
 
     /** Wrapper na kształt by nie duplikować kodu */
     export class ShapeWrapper extends KernelObject {
@@ -14,7 +15,7 @@ module Core.Scene {
         public draw(ctx: Types.Context) { 
             this.caller(ctx, this.rect, this.params); 
         }
-    };
+    }
 
     /** Tekst */
     export class Text extends ShapeWrapper {
@@ -33,7 +34,7 @@ module Core.Scene {
         public getWidth(): number { 
             return this.text.length * 14.5; 
         }
-    };
+    }
 
     /** Obraz */
     export class Sprite extends KernelObject {
@@ -61,7 +62,7 @@ module Core.Scene {
             } else
                 Graph.Template.Image(ctx, this.rect, { img: <Types.Image> this.img });
         }
-    };
+    }
 
     /** Canvas */
     export class RenderTarget extends KernelObject {
@@ -86,5 +87,5 @@ module Core.Scene {
         public draw(ctx: Types.Context) {
             ctx.drawImage(this.config.canvas, this.rect.x, this.rect.y);
         }
-    };
-};
+    }
+}

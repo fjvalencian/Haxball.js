@@ -7,7 +7,7 @@ module Core.Input {
         , S = 83
         , A = 65
         , D = 68
-    };
+    }
 
     /** Typ eventu pochodzący z kernela */
     export enum Type { 
@@ -20,16 +20,16 @@ module Core.Input {
         , LOADING
         /** multiplayer */
         , PLAYER_LIST_UPDATE
-    };
+    }
 
     /** Event z kernela */
     export interface Event { 
         type: Type; 
         data?: any; 
-    };
+    }
 
     /** Interfejs nasłuchiwujący eventu */
     export interface Listener { 
         onEvent(source: any, event: Event): void; 
-    };
-};
+    }
+}

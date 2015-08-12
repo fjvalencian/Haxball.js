@@ -5,21 +5,21 @@ module Core.Resource {
         name: string;
         path: string;
         res?: any;
-    };
+    }
     interface Loader<T> { 
         (res: Data, callback: Callback<T>): void; 
-    };
+    }
     var loaders: { [ index: string ]: Loader<any> } = {};
     
     /** Callback wywoływany po załadowaniu zasobu */
     export interface Callback<T> { 
         (data: T, res: Data): void; 
-    };
+    }
     
     /** Paczka zasobów */
     export interface GamePack {
         [index: string]: Data 
-    };
+    }
 
     /** Loader plików graficznych */
     loaders['png|jpg'] = 
@@ -35,7 +35,8 @@ module Core.Resource {
     /**
      * Ładowanie zasobu, wykrywanie loadera po rozszerzeniu
      * @param  {Resource[]} resources  Nazwa stanu
-     * @param  {Func}       callback   Callback po wczytaniu całej paczki
+     * @param  {Function}   callback   Callback po wczytaniu całej paczki
+     * @param  {Function}   percentage Callback wywoływany wraz ze zwiększaniem się procentu
      */
     export function load<T>(
               resources: Data[]
@@ -69,5 +70,5 @@ module Core.Resource {
                 res.path = '../assets/'.concat(res.path);
             (getLoader(res.path))(res, loaded);
         });
-    };
-};
+    }
+}

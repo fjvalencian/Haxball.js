@@ -23,17 +23,17 @@ module Core {
                     return;
                 super.onEvent(source, event);
             }
-        };
+        }
 
         /** Layout do rozmieszczania obiektów */
         export interface Layout {
             (object: any, objects: any[], container: ContainerObject<any>)
-        };
+        }
 
         /** Kontener na obiekty */
         export class ContainerObject<T extends ObjectTemplate> extends KernelObject {
-            constructor(rect = new Types.Rect
-                , public layout: Layout = null) {
+            constructor( rect = new Types.Rect
+                       , public layout: Layout = null) {
                 super(rect);
             }
 
@@ -44,7 +44,8 @@ module Core {
             
             /**
              * Dodawanie obiektu
-             * @param {T} obj Obiekt sceny
+             * @param {T}      obj  Obiekt sceny
+             * @param {number} id   Identyfikator obiektu
              */
             public add(obj: T|T[], id?: number): any {
                 /** Konfiguracja pojedynczego elementu */
@@ -71,12 +72,18 @@ module Core {
                 return obj;
             }
 
+            /** Kasowanie wszystkich elementów */
+            public clear(): ContainerObject<T> {
+                this.objects = [];
+                return this;
+            }
+
             /**
              * Kasowanie elementu
              * @param  {T} obj Element
              */
             public remove(obj: T): ContainerObject<T> {
-                this.objects = _(this.objects).without(obj);
+                this.objects = <any> _(this.objects).without(obj);
                 return this;
             }
 
@@ -111,8 +118,8 @@ module Core {
 
                 ctx.restore();
             }
-        };
-    };
+        }
+    }
 
     /** Stan gry */
     export class State extends Scene.ContainerObject<Scene.KernelObject> {
@@ -121,10 +128,10 @@ module Core {
               sprite: (img: string, rect: Types.Rect): Scene.Sprite => {
                 return this.add(new Scene.Sprite(this.kernel.res(img) || img, rect));
             }
-            , text: (text: string
-                , pos: Types.Vec2
-                , font?: Graph.Font
-                ): Scene.Text => {
+            , text: ( text: string
+                    , pos: Types.Vec2
+                    , font?: Graph.Font
+                    ): Scene.Text => {
                 return this.add(new Scene.Text(text, pos, font));
             }
         };
@@ -151,5 +158,5 @@ module Core {
             super.draw(ctx);
             this.update();
         }
-    };
+    }
 }

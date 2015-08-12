@@ -4,7 +4,7 @@ module Core.Graph.Template {
     /** Kształt renderowany przez funkcję */
     export interface Shape {
         (ctx: Types.Context, shape: any, params?: any): void;
-    };
+    }
 
     /** Prostokąt */
     export var Rect = 
@@ -36,7 +36,7 @@ module Core.Graph.Template {
             ctx.fillStyle = params.color;
             ctx.fill();
         }
-        if (params.stroke) {;
+        if (params.stroke) {
             ctx.lineWidth = params.stroke.width;
             ctx.strokeStyle = params.stroke.color;
             ctx.stroke();
@@ -47,7 +47,7 @@ module Core.Graph.Template {
     /** Tekst */
     export function parseFont(font: Font): string {
         return font.size + 'px "' + font.name + '"';
-    };
+    }
     export var Text = 
             ( ctx: Types.Context
             , pos: Types.Vec2
@@ -74,7 +74,7 @@ module Core.Graph.Template {
 
     /** Linia */
     export var Line =
-            (ctx: Types.Context
+            ( ctx: Types.Context
             , rect: Types.Rect
             , params: { width: number; color: string; }
             ) => {
@@ -89,7 +89,7 @@ module Core.Graph.Template {
 
     /** Okrąg */
     export var Circle =
-            (ctx: Types.Context
+            ( ctx: Types.Context
             , pos: Types.Vec2
             , params: { color?: string; centered?: boolean; r: number; stroke?: { width: number; color: string; } }
             ) => {
@@ -108,4 +108,4 @@ module Core.Graph.Template {
         ctx.strokeStyle = params.stroke.color;
         ctx.stroke();
     };
-};
+}

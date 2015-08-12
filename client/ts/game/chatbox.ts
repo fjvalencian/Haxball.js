@@ -1,4 +1,4 @@
-/// <reference path="../game.ts" />
+/// <reference path="game.ts" />
 
 module Game.State {
     /** Pole chatu */
@@ -28,5 +28,5 @@ module Game.State {
                     });
                 });
         }
-    };
+    }
 }

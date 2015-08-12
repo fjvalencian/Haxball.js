@@ -102,5 +102,5 @@ module Game {
         public update() {
             this.rect.add(<Types.Rect> this.v);
         }
-    };
+    }
 }

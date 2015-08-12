@@ -21,7 +21,7 @@ module Types {
             });
             return this;
         }
-    };
+    }
 
     /** Kierunki poruszania się */
     export enum Direction {
@@ -29,7 +29,7 @@ module Types {
         , DOWN
         , LEFT
         , RIGHT
-    };
+    }
 
     /** Wektor xy */
     export class Vec2 extends Copyable {
@@ -38,7 +38,7 @@ module Types {
             super();
         }
         public get xy() { return [ this.x, this.y ]; }
-        public set xy(vals:number[]) {
+        public set xy(vals: number[]) {
             this.x = vals[0];
             this.y = vals[1];
         }
@@ -93,7 +93,7 @@ module Types {
             d.y /= len;
             return d;
         }
-    };
+    }
 
     /** Prostokąt */
     export class Rect extends Vec2 {
@@ -168,7 +168,7 @@ module Types {
 
         /**
          * Zwraca true jeśli prostokąt znajduje się w rect
-         * @param  {Rect}    Prostokąt w którym ma być this
+         * @param  {Rect}   rect   Prostokąt w którym ma być this
          */
         public contains(rect: Rect): boolean {
             return (
@@ -181,7 +181,7 @@ module Types {
 
         /**
          * Zwraca true jeśli prostokąt jest większy w rect
-         * @param  {Rect}    Prostokąt
+         * @param  {Rect}   rect    Prostokąt
          */
         public isBigger(rect: Rect) {
             return (
@@ -192,8 +192,8 @@ module Types {
 
         /**
          * Zwracanie prostokąta z paddingiem
-         * @param  {number}  Padding
-         * @return {Rect}    Prostokąt
+         * @param  {number} padding Padding
+         * @return {Rect} Prostokąt
          */
         public withPadding(padding: number): Rect {
             return new Rect( this.x + padding
@@ -206,7 +206,7 @@ module Types {
         public center(): Vec2 {
             return new Vec2(this.x + this.w / 2, this.y + this.h / 2);
         }
-    };
+    }
 
     /** Kolor */
     export class Color {
@@ -235,5 +235,5 @@ module Types {
                 + Color.hex(this.g)
                 + Color.hex(this.b);
         }
-    };
-};
+    }
+}

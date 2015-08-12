@@ -16,5 +16,5 @@ module Core.Scene {
         public init() {}
         public draw(ctx: Types.Context) {}
         public update() {}
-    };
+    }
 }

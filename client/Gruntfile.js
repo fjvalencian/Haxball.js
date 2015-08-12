@@ -59,6 +59,6 @@ module.exports = function(grunt) {
     ];
     _.each(tasks, function(obj) {
         grunt.loadNpmTasks(obj);
-    })
+    });
     grunt.registerTask('default', [ 'watch' ]);
 };

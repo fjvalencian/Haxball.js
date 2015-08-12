@@ -13,7 +13,7 @@ module Core {
         _.each(callbacks, (val: any, key: string) => {
             socket.on(key, val.bind(context));
         });
-    };
+    }
 
 
     /**
@@ -24,13 +24,13 @@ module Core {
      */
     export function hasFlag(number: number, flag: number): boolean {
         return (number & flag) === flag;
-    };
+    }
 
     export module Server.Data {
         export interface PlayerTemplate {
             rect: Types.Rect;
             mass: number;
-        };
+        }
 
         /** Konfiguracja pokoju */
         export interface RoomConfig {
@@ -45,20 +45,21 @@ module Core {
             templates: {
                 player: PlayerTemplate;
                 ball: PlayerTemplate;
-            }
-        };
+            };
+            gates: Types.Rect[];
+        }
 
         export const enum Team {
               LEFT
             , SPECTATORS
             , RIGHT  
-        };
+        }
 
         /** Ustawianie nowych flag */
         export interface NewFlags {
             nick: string;
             flags: number;
-        };
+        }
 
         /** Dane serwera */
         export type RoomUpdate = ArrayBuffer;
@@ -69,7 +70,7 @@ module Core {
             , BALL     = 1 << 2
             , PLAYER   = 1 << 3
             , SHOOTING = 1 << 4
-        };
+        }
         export class PlayerInfo extends Types.Copyable {
             public number: number = 0;
             public flags: number = 0;
@@ -84,18 +85,16 @@ module Core {
             }
             public isBall = this.hasFlag.bind(this, PlayerFlags.BALL);
             public isPlayer = this.hasFlag.bind(this, PlayerFlags.PLAYER);
-        };
+        }
 
         /** Wiadomość wysyłana do gracza podłączającego się do pokoju */
-        export interface RoomEntered {
-            board: Types.Rect;
-            gateHeight: number;
+        export interface RoomEntered extends RoomConfig {
             msg: string;
-        };
+        }
 
         /** Wiadomość rozsyłana  */
         export interface RoomJoin {
             players: PlayerInfo[];
-        };
-    };
+        }
+    }
 }

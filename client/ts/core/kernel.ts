@@ -23,12 +23,12 @@ module Core {
                 , br.height
             );
         }
-    };
+    }
 
     /** Stany silnika */
     enum KernelMode {
         PRELOADING, RUNNING
-    };
+    }
 
     /**
      * Rdzeń aplikacji, zarządzanie aktywnymi stanami
@@ -220,5 +220,5 @@ module Core {
             this.loop();
             Resource.load(this.resources, postLoad, progress);
         }
-    };
-};
+    }
+}
